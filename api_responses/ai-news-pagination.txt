@@ -1,0 +1,99 @@
+link- https://webapi.niftytrader.in/webapi/Other/ai-news-pagination?category=India&pageNumber=1&pageSize=8
+
+output-
+{
+  "result": 1,
+  "resultMessage": "Success",
+  "resultData": {
+    "totalItems": 2171,
+    "maxNavigationPages": 5,
+    "pageNumber": 1,
+    "pageSize": 8,
+    "totalPages": 272,
+    "startPage": 1,
+    "endPage": 5,
+    "pageNumbers": [1, 2, 3, 4, 5],
+    "items": [
+      {
+        "id": 626478,
+        "category": "India",
+        "title": "Gold Hits New High Amid Rate Cut Buzz",
+        "description": "Gold prices surge on US Fed rate cut speculation. Investors weigh adding positions or booking profits as market anticipates potential shifts. Market Volatility Expected.",
+        "url": "https://www.livemint.com/market/commodities/gold-rate-today-hit-new-high-on-us-fed-rate-cut-buzz-is-it-right-time-to-add-more-or-book-profits-11758013086238.html",
+        "sentiment": 2,
+        "weightage": "Moderate",
+        "created_at": "2025-09-16T15:01:34.703"
+      },
+      {
+        "id": 626479,
+        "category": "India",
+        "title": "Dev Accelerator IPO Listing Imminent",
+        "description": "Dev Accelerator IPO set to list. Market anticipates debut performance amid GMP hints. Investors eye potential gains. Volatility Expected. Monitor closely.",
+        "url": "https://www.livemint.com/market/ipo/dev-accelerator-ipo-listing-tomorrow-dev-accelerator-ipo-gmp-subscription-status-hint-ahead-of-debut-11758011894307.html",
+        "sentiment": 1,
+        "weightage": "Low",
+        "created_at": "2025-09-16T14:59:34.703"
+      },
+      {
+        "id": 626480,
+        "category": "India",
+        "title": "Ivalue Infosolutions IPO Details",
+        "description": "Ivalue Infosolutions IPO: Key dates & financials revealed. Investors analyze RHP for informed decisions. Market awaits subscription details. Careful Analysis Needed.",
+        "url": "https://www.livemint.com/market/ipo/ivalue-infosolutions-ipo-from-key-dates-to-financials-here-are-10-key-things-to-know-from-the-rhp-11758010350787.html",
+        "sentiment": 0,
+        "weightage": "Low",
+        "created_at": "2025-09-16T14:57:34.703"
+      },
+      {
+        "id": 626481,
+        "category": "India",
+        "title": "Sindhu Trade Links Surges 18%",
+        "description": "Sindhu Trade Links jumps ~18% driven by Indian stock market rally. Trade volume soars 17.55 times. Investor interest spikes. Market Momentum Strong.",
+        "url": "https://www.livemint.com/market/stock-market-news/sindhu-trade-links-share-price-jumps-around-18-following-rally-in-indian-stock-market-trade-volume-jumps-17-55-times-11758014209616.html",
+        "sentiment": 3,
+        "weightage": "Moderate",
+        "created_at": "2025-09-16T14:55:34.703"
+      },
+      {
+        "id": 626482,
+        "category": "India",
+        "title": "L&T, BEL: Top Picks for Upward Move",
+        "description": "Steady gains set stage for a big upmove. L&T, BEL are highlighted as top picks. Positive market sentiment builds. Investors Watch Closely.",
+        "url": "https://economictimes.indiatimes.com/markets/stocks/news/slow-and-steady-gains-set-stage-for-next-big-upmove-lt-bel-among-top-picks/articleshow/123918772.cms",
+        "sentiment": 2,
+        "weightage": "Moderate",
+        "created_at": "2025-09-16T14:53:34.703"
+      },
+      {
+        "id": 626483,
+        "category": "India",
+        "title": "Consumption, GST Reforms Boost Markets",
+        "description": "Consumption & GST reforms propel market gains. Experts advise staying invested amidst noise. Market resilience expected. Economic Indicators Positive.",
+        "url": "https://economictimes.indiatimes.com/markets/stocks/news/ignore-the-noise-stay-invested-as-consumption-and-gst-reforms-boost-markets-devina-mehra/articleshow/123918206.cms",
+        "sentiment": 3,
+        "weightage": "High",
+        "created_at": "2025-09-16T14:51:34.703"
+      },
+      {
+        "id": 626484,
+        "category": "India",
+        "title": "Eternal Joins Nifty50 Top 25",
+        "description": "Eternal surpasses two Tata Group firms in market cap, entering Nifty50's top 25. Stock market dynamics shift. Investor Sentiment High.",
+        "url": "https://economictimes.indiatimes.com/markets/stocks/news/eternal-surpasses-2-tata-group-firms-in-market-cap-enters-nifty50s-top-25-club/articleshow/123918033.cms",
+        "sentiment": 2,
+        "weightage": "Moderate",
+        "created_at": "2025-09-16T14:49:34.703"
+      },
+      {
+        "id": 626485,
+        "category": "India",
+        "title": "Airfloa IPO Allotment Today",
+        "description": "Airfloa Rail Technology IPO allotment is likely today. Check share allotment status. GMP jumps. Stay updated on the IPO's progress and potential market impact.",
+        "url": "https://www.livemint.com/market/ipo/airfloa-rail-technology-ipo-allotment-date-likely-today-gmp-jumps-steps-to-check-share-allotment-status-online-11758012655175.html",
+        "sentiment": 2,
+        "weightage": "Moderate",
+        "created_at": "2025-09-16T14:47:34.703"
+      }
+    ]
+  }
+}
