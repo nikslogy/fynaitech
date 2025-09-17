@@ -318,16 +318,19 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base sm:text-lg">Calls vs Puts Change OI Distribution</CardTitle>
-            <Badge variant="outline" className="text-xs">
-              Hover for Change OI (Lakhs)
-            </Badge>
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <CardTitle className="text-base sm:text-lg">Calls vs Puts Change OI Distribution</CardTitle>
+              <Badge variant="outline" className="text-xs w-fit">
+                Hover for Change OI (Lakhs)
+              </Badge>
+            </div>
+            <div className="flex gap-2 self-start sm:self-auto">
               <Button
                 variant={chartType === 'pie' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setChartType('pie')}
+                className="text-xs"
               >
                 Pie Chart
               </Button>
@@ -335,6 +338,7 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
                 variant={chartType === 'bar' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setChartType('bar')}
+                className="text-xs"
               >
                 Bar Chart
               </Button>
