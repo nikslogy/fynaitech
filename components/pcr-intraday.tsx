@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from "recharts"
+import { Slider } from "@/components/ui/slider"
 import { fetchTrendingOIData, fetchPCRData, fetchTodaySpotData, getSymbolForAPI, TrendingOIData, PCRData, formatNumber, generateStrikePrices } from "@/lib/api"
 
 interface PCRIntradayProps {
@@ -33,6 +34,7 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [newestFirst, setNewestFirst] = useState(true)
+  const [chartRange, setChartRange] = useState([0, 100]) // Start and end percentage of data to show
 
   // Process trending OI data into display format
   const processTrendingOIData = (rawData: TrendingOIData[]): ProcessedPCRData[] => {
@@ -174,7 +176,12 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
     return newestFirst ? timeB.getTime() - timeA.getTime() : timeA.getTime() - timeB.getTime()
   })
 
-  const pcrVsSpotData = chartData.map((item) => ({
+  // Filter chart data based on selected range (start and end percentages)
+  const startIndex = Math.floor(chartData.length * (chartRange[0] / 100))
+  const endIndex = Math.ceil(chartData.length * (chartRange[1] / 100))
+  const filteredChartData = chartData.slice(startIndex, endIndex)
+
+  const pcrVsSpotData = filteredChartData.map((item) => ({
     time: item.time,
     pcr: item.pcr, // Use PCR from oi-pcr-data API
     spotPrice: item.spotPrice,
@@ -197,6 +204,33 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
             <CardTitle>
               PCR vs Spot Price - {instrument}
             </CardTitle>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Time Range: {chartRange[0]}% - {chartRange[1]}%
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  {filteredChartData.length} data points
+                </span>
+              </div>
+              <Slider
+                value={chartRange}
+                onValueChange={setChartRange}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Start (9:15)</span>
+                <span>End (15:30)</span>
+              </div>
+              {filteredChartData.length > 0 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  Showing: {filteredChartData[0]?.time} to {filteredChartData[filteredChartData.length - 1]?.time}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -207,24 +241,60 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={pcrVsSpotData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis yAxisId="left" orientation="left" domain={['dataMin - 5', 'dataMax + 5']} />
-                    <YAxis yAxisId="right" orientation="right" domain={['dataMin - 5', 'dataMax + 5']} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                    <XAxis
+                      dataKey="time"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      orientation="left"
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
                     <Tooltip
                       formatter={(value: any, name: string) => [
                         name === "Spot Price" ? formatNumber(value, 2) : formatNumber(value, 4),
                         name
                       ]}
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
                     />
-                    <Line yAxisId="left" type="monotone" dataKey="pcr" stroke="#ef4444" strokeWidth={2} name="PCR" />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="pcr"
+                      stroke="#ef4444"
+                      strokeWidth={1.5}
+                      name="PCR"
+                      dot={false}
+                      activeDot={{ r: 3, fill: '#ef4444' }}
+                    />
                     <Line
                       yAxisId="right"
                       type="monotone"
                       dataKey="spotPrice"
                       stroke="#22c55e"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       name="Spot Price"
+                      dot={false}
+                      activeDot={{ r: 3, fill: '#22c55e' }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -236,6 +306,33 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
         <Card>
           <CardHeader>
             <CardTitle>Change OI PCR vs Spot Price</CardTitle>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Time Range: {chartRange[0]}% - {chartRange[1]}%
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  {filteredChartData.length} data points
+                </span>
+              </div>
+              <Slider
+                value={chartRange}
+                onValueChange={setChartRange}
+                max={100}
+                min={0}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Start (9:15)</span>
+                <span>End (15:30)</span>
+              </div>
+              {filteredChartData.length > 0 && (
+                <div className="text-xs text-muted-foreground text-center">
+                  Showing: {filteredChartData[0]?.time} to {filteredChartData[filteredChartData.length - 1]?.time}
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -246,31 +343,60 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={pcrVsSpotData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis yAxisId="left" orientation="left" domain={['dataMin - 5', 'dataMax + 5']} />
-                    <YAxis yAxisId="right" orientation="right" domain={['dataMin - 5', 'dataMax + 5']} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                    <XAxis
+                      dataKey="time"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      orientation="left"
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                    />
                     <Tooltip
                       formatter={(value: any, name: string) => [
-                        name === "Spot Price" ? formatNumber(value, 2) : formatNumber(value, 4),
-                        name
+                        formatNumber(value, 4),
+                        name === "Change OI PCR" ? "COI PCR" : name
                       ]}
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
                     />
                     <Line
                       yAxisId="left"
                       type="monotone"
                       dataKey="changeOIPCR"
                       stroke="#8884d8"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       name="Change OI PCR"
+                      dot={false}
+                      activeDot={{ r: 3, fill: '#8884d8' }}
                     />
                     <Line
                       yAxisId="right"
                       type="monotone"
                       dataKey="spotPrice"
                       stroke="#22c55e"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       name="Spot Price"
+                      dot={false}
+                      activeDot={{ r: 3, fill: '#22c55e' }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
