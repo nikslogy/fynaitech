@@ -168,11 +168,11 @@ export default function FynAIPage() {
   const [selectedInstrument, setSelectedInstrument] = useState("NIFTY")
   const [selectedExpiry, setSelectedExpiry] = useState("")
   const [selectedTimeframe, setSelectedTimeframe] = useState("5")
-  const [strikeRange, setStrikeRange] = useState("ATM±10")
-  const [strikeMode, setStrikeMode] = useState("range") // range, custom, default
+  const [strikeRange, setStrikeRange] = useState("ATM±5")
+  const [strikeMode, setStrikeMode] = useState("default") // range, custom, default
   const [customStrikes, setCustomStrikes] = useState("24550,25000")
-  const [rangeStart, setRangeStart] = useState("24500")
-  const [rangeEnd, setRangeEnd] = useState("25000")
+  const [rangeStart, setRangeStart] = useState("25000")
+  const [rangeEnd, setRangeEnd] = useState("25400")
   const [isStrikeModalOpen, setIsStrikeModalOpen] = useState(false)
   const [expiryOptions, setExpiryOptions] = useState<any[]>([])
   const [activeStrikeRange, setActiveStrikeRange] = useState("")
@@ -956,95 +956,95 @@ export default function FynAIPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2 sm:gap-3">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="text-center p-3 bg-muted/30 rounded-lg animate-pulse">
-                    <div className="h-3 bg-muted rounded mb-2"></div>
-                    <div className="h-5 bg-muted rounded mb-1"></div>
-                    <div className="h-3 bg-muted rounded"></div>
+                  <div key={i} className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg animate-pulse">
+                    <div className="h-2 sm:h-3 bg-muted rounded mb-1 sm:mb-2"></div>
+                    <div className="h-3 sm:h-4 bg-muted rounded mb-1"></div>
+                    <div className="h-2 bg-muted rounded"></div>
                   </div>
                 ))}
               </div>
             ) : marketData ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-10 gap-3 sm:gap-4">
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">NIFTY 50</p>
-                  <p className="text-base sm:text-lg font-bold">{formatNumber(marketData.nifty.price, 0)}</p>
-                  <p className={`text-xs sm:text-sm ${marketData.nifty.change > 0 ? "text-green-600" : "text-red-600"}`}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2 sm:gap-3">
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">NIFTY 50</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold">{formatNumber(marketData.nifty.price, 0)}</p>
+                  <p className={`text-[10px] sm:text-xs lg:text-sm ${marketData.nifty.change > 0 ? "text-green-600" : "text-red-600"}`}>
                     {marketData.nifty.change > 0 ? "+" : ""}
                     {formatNumber(marketData.nifty.change, 2)} ({formatNumber(marketData.nifty.changePercent, 2)}%)
                   </p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">BANK NIFTY</p>
-                  <p className="text-base sm:text-lg font-bold">{formatNumber(marketData.bankNifty.price, 0)}</p>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">BANK NIFTY</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold">{formatNumber(marketData.bankNifty.price, 0)}</p>
                   <p
-                    className={`text-xs sm:text-sm ${marketData.bankNifty.change > 0 ? "text-green-600" : "text-red-600"}`}
+                    className={`text-[10px] sm:text-xs lg:text-sm ${marketData.bankNifty.change > 0 ? "text-green-600" : "text-red-600"}`}
                   >
                     {marketData.bankNifty.change > 0 ? "+" : ""}
                     {formatNumber(marketData.bankNifty.change, 2)} ({formatNumber(marketData.bankNifty.changePercent, 2)}%)
                   </p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Day High</p>
-                  <p className="text-base sm:text-lg font-bold text-green-600">
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Day High</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">
                     {formatNumber(selectedInstrument === "NIFTY" ? marketData.nifty.high : marketData.bankNifty.high, 0)}
                   </p>
-                  <p className="text-xs text-muted-foreground">{selectedInstrument}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">{selectedInstrument}</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Day Low</p>
-                  <p className="text-base sm:text-lg font-bold text-red-600">
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Day Low</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-red-600">
                     {formatNumber(selectedInstrument === "NIFTY" ? marketData.nifty.low : marketData.bankNifty.low, 0)}
                   </p>
-                  <p className="text-xs text-muted-foreground">{selectedInstrument}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">{selectedInstrument}</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Volume PCR</p>
-                  <p className="text-base sm:text-lg font-bold">{formatNumber(marketData.volumePCR, 3)}</p>
-                  <p className="text-xs text-muted-foreground">Live</p>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Volume PCR</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold">{formatNumber(marketData.volumePCR, 3)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Live</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">PCR</p>
-                  <p className="text-base sm:text-lg font-bold">{formatNumber(marketData.putCallRatio.value, 3)}</p>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">PCR</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold">{formatNumber(marketData.putCallRatio.value, 3)}</p>
                   <p
-                    className={`text-xs sm:text-sm ${marketData.putCallRatio.signal === "Bullish" ? "text-green-600" : marketData.putCallRatio.signal === "Bearish" ? "text-red-600" : "text-yellow-600"}`}
+                    className={`text-[10px] sm:text-xs lg:text-sm ${marketData.putCallRatio.signal === "Bullish" ? "text-green-600" : marketData.putCallRatio.signal === "Bearish" ? "text-red-600" : "text-yellow-600"}`}
                   >
                     {marketData.putCallRatio.signal}
                   </p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Max Pain</p>
-                  <p className="text-base sm:text-lg font-bold">
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Max Pain</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold">
                     {formatNumber(selectedInstrument === "NIFTY" ? marketData.nifty.maxPain : marketData.bankNifty.maxPain, 0)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Strike Level</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Strike Level</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Change OI PCR</p>
-                  <p className={`text-base sm:text-lg font-bold ${marketData.changeOIPCR > 0 ? "text-green-600" : "text-red-600"}`}>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Change OI PCR</p>
+                  <p className={`text-sm sm:text-base lg:text-lg font-bold ${marketData.changeOIPCR > 0 ? "text-green-600" : "text-red-600"}`}>
                     {formatNumber(marketData.changeOIPCR, 2)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Live</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Live</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Support</p>
-                  <p className="text-base sm:text-lg font-bold text-green-600">{formatNumber(marketData.keyLevels.support, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Key Level</p>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Support</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">{formatNumber(marketData.keyLevels.support, 0)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Key Level</p>
                 </div>
 
-                <div className="text-center p-3 bg-muted/30 rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">Resistance</p>
-                  <p className="text-base sm:text-lg font-bold text-red-600">{formatNumber(marketData.keyLevels.resistance, 0)}</p>
-                  <p className="text-xs text-muted-foreground">Key Level</p>
+                <div className="text-center p-2 sm:p-3 bg-muted/30 rounded-lg">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Resistance</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-red-600">{formatNumber(marketData.keyLevels.resistance, 0)}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Key Level</p>
                 </div>
               </div>
             ) : (
