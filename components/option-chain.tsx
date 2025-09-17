@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp, BarChart3 } from "lucide-react"
+import { TrendingUp, BarChart3, Loader2 } from "lucide-react"
+import { fetchOptionChainCalculatorData, fetchFutureExpiryData, OptionChainData, FutureExpiryData } from "@/lib/api"
 
 interface OptionChainProps {
   instrument: string
@@ -43,330 +44,151 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
   const [viewMode, setViewMode] = useState("standard")
   const [showGreeks, setShowGreeks] = useState(false)
   const [showVolume, setShowVolume] = useState(true)
+  const [optionData, setOptionData] = useState<OptionChainData[]>([])
+  const [futureData, setFutureData] = useState<FutureExpiryData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedExpiry, setSelectedExpiry] = useState(expiry || "")
 
-  // Mock data matching the image format
-  const futuresData = {
-    price: instrument === "NIFTY" ? 25100 : 47250.3,
-    change: instrument === "NIFTY" ? 125.5 : -85.2,
-    changePercent: instrument === "NIFTY" ? 0.58 : -0.18,
+  // Fetch option chain data and future data
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Fetch both option chain data and future expiry data in parallel
+        const [optionChainData, futureDataResult] = await Promise.all([
+          fetchOptionChainCalculatorData(
+            instrument.toLowerCase(),
+            undefined,
+            "09:20:00",
+            "20",
+            "20"
+          ),
+          fetchFutureExpiryData(instrument.toLowerCase())
+        ])
+
+        setOptionData(optionChainData)
+        setFutureData(futureDataResult)
+
+        // Set default expiry immediately after data is loaded
+        if (futureDataResult.length > 0) {
+          const uniqueExpiries = [...new Set(futureDataResult.map(item => item.expiry))]
+          if (uniqueExpiries.length > 0) {
+            setSelectedExpiry(uniqueExpiries[0])
+          }
+        }
+      } catch (err) {
+        console.error('Fetch error:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [instrument])
+
+
+  // More robust expiry matching
+  let selectedFuture = null
+
+  if (futureData.length > 0) {
+    // First try to find by selectedExpiry
+    if (selectedExpiry) {
+      selectedFuture = futureData.find(future => {
+        const futureExpiry = future.expiry
+        const selectedExpiryFormatted = selectedExpiry
+
+        // Try exact match first
+        if (futureExpiry === selectedExpiryFormatted) return true
+
+        // Try date format matching (remove time part if present)
+        const futureExpiryDate = futureExpiry.split('T')[0]
+        const selectedExpiryDate = selectedExpiryFormatted.split('T')[0]
+
+        return futureExpiryDate === selectedExpiryDate
+      })
+    }
+
+    // If no match found, use the first available future as fallback
+    if (!selectedFuture) {
+      selectedFuture = futureData[0]
+    }
   }
 
-  const optionData: OptionData[] = [
-    {
-      strike: 24800,
-      callOIChg: -26,
-      callOILakh: 9.3,
-      callOI: 306,
-      callLTP: 306.0,
-      callVolume: 1250,
-      callDelta: 0.85,
-      callGamma: 0.002,
-      callTheta: -12.5,
-      callVega: 8.2,
-      iv: 15.4,
-      putLTP: 5.95,
-      putOI: 127,
-      putOILakh: 127.4,
-      putOIChg: 24,
-      putVolume: 850,
-      putDelta: -0.15,
-      putGamma: 0.002,
-      putTheta: -8.1,
-      putVega: 8.2,
-    },
-    {
-      strike: 24850,
-      callOIChg: -24,
-      callOILakh: 4.3,
-      callOI: 256,
-      callLTP: 256.5,
-      callVolume: 980,
-      callDelta: 0.78,
-      callGamma: 0.003,
-      callTheta: -15.2,
-      callVega: 9.1,
-      iv: 14.0,
-      putLTP: 7.25,
-      putOI: 66,
-      putOILakh: 66.6,
-      putOIChg: 39,
-      putVolume: 1200,
-      putDelta: -0.22,
-      putGamma: 0.003,
-      putTheta: -9.8,
-      putVega: 9.1,
-    },
-    {
-      strike: 24900,
-      callOIChg: -17,
-      callOILakh: 14.3,
-      callOI: 208,
-      callLTP: 208.15,
-      callVolume: 1500,
-      callDelta: 0.72,
-      callGamma: 0.004,
-      callTheta: -17.8,
-      callVega: 10.3,
-      iv: 12.7,
-      putLTP: 9.4,
-      putOI: 114,
-      putOILakh: 114.7,
-      putOIChg: 7,
-      putVolume: 1400,
-      putDelta: -0.3,
-      putGamma: 0.004,
-      putTheta: -16.4,
-      putVega: 10.3,
-    },
-    {
-      strike: 24950,
-      callOIChg: 0.7,
-      callOILakh: 9.4,
-      callOI: 163,
-      callLTP: 163.0,
-      callVolume: 1800,
-      callDelta: 0.67,
-      callGamma: 0.005,
-      callTheta: -19.1,
-      callVega: 11.4,
-      iv: 11.6,
-      putLTP: 12.85,
-      putOI: 81,
-      putOILakh: 81.7,
-      putOIChg: 8,
-      putVolume: 1600,
-      putDelta: -0.35,
-      putGamma: 0.005,
-      putTheta: -15.7,
-      putVega: 11.4,
-    },
-    {
-      strike: 25000,
-      callOIChg: 8,
-      callOILakh: 58.1,
-      callOI: 117,
-      callLTP: 117.85,
-      callVolume: 2100,
-      callDelta: 0.62,
-      callGamma: 0.006,
-      callTheta: -20.4,
-      callVega: 12.5,
-      iv: 10.5,
-      putLTP: 18.65,
-      putOI: 204,
-      putOILakh: 204.2,
-      putOIChg: 14,
-      putVolume: 2200,
-      putDelta: -0.4,
-      putGamma: 0.006,
-      putTheta: -14.9,
-      putVega: 12.5,
-    },
-    {
-      strike: 25050,
-      callOIChg: 105,
-      callOILakh: 44.6,
-      callOI: 77,
-      callLTP: 77.4,
-      callVolume: 2400,
-      callDelta: 0.57,
-      callGamma: 0.007,
-      callTheta: -21.7,
-      callVega: 13.6,
-      iv: 9.4,
-      putLTP: 28.25,
-      putOI: 109,
-      putOILakh: 109.9,
-      putOIChg: 43,
-      putVolume: 2500,
-      putDelta: -0.45,
-      putGamma: 0.007,
-      putTheta: -14.0,
-      putVega: 13.6,
-    },
-    {
-      strike: 25100,
-      callOIChg: 147,
-      callOILakh: 203.1,
-      callOI: 45,
-      callLTP: 45.6,
-      callVolume: 2700,
-      callDelta: 0.52,
-      callGamma: 0.008,
-      callTheta: -18.5,
-      callVega: 15.2,
-      iv: 8.7,
-      putLTP: 45.1,
-      putOI: 168,
-      putOILakh: 168.7,
-      putOIChg: 36,
-      putVolume: 2800,
-      putDelta: -0.48,
-      putGamma: 0.008,
-      putTheta: -18.1,
-      putVega: 15.2,
-      isATM: true,
-    },
-    {
-      strike: 25150,
-      callOIChg: 101,
-      callOILakh: 123.6,
-      callOI: 25,
-      callLTP: 25.8,
-      callVolume: 3000,
-      callDelta: 0.47,
-      callGamma: 0.009,
-      callTheta: -19.8,
-      callVega: 16.8,
-      iv: 8.9,
-      putLTP: 75.75,
-      putOI: 33,
-      putOILakh: 33.4,
-      putOIChg: -12,
-      putVolume: 3100,
-      putDelta: -0.53,
-      putGamma: 0.009,
-      putTheta: -17.2,
-      putVega: 16.8,
-    },
-    {
-      strike: 25200,
-      callOIChg: 66,
-      callOILakh: 165.8,
-      callOI: 14,
-      callLTP: 14.1,
-      callVolume: 3300,
-      callDelta: 0.42,
-      callGamma: 0.01,
-      callTheta: -20.9,
-      callVega: 18.1,
-      iv: 9.3,
-      putLTP: 114.05,
-      putOI: 25,
-      putOILakh: 25.8,
-      putOIChg: -25,
-      putVolume: 3400,
-      putDelta: -0.58,
-      putGamma: 0.01,
-      putTheta: -18.3,
-      putVega: 18.1,
-    },
-    {
-      strike: 25250,
-      callOIChg: 85,
-      callOILakh: 83.8,
-      callOI: 7,
-      callLTP: 7.55,
-      callVolume: 3600,
-      callDelta: 0.37,
-      callGamma: 0.011,
-      callTheta: -22.0,
-      callVega: 19.4,
-      iv: 11.4,
-      putLTP: 203.3,
-      putOI: 4,
-      putOILakh: 4.5,
-      putOIChg: -30,
-      putVolume: 3700,
-      putDelta: -0.63,
-      putGamma: 0.011,
-      putTheta: -21.6,
-      putVega: 19.4,
-    },
-    {
-      strike: 25300,
-      callOIChg: 34,
-      callOILakh: 119.9,
-      callOI: 4,
-      callLTP: 4.65,
-      callVolume: 3900,
-      callDelta: 0.32,
-      callGamma: 0.012,
-      callTheta: -23.1,
-      callVega: 20.7,
-      iv: 12.5,
-      putLTP: 251.65,
-      putOI: 6,
-      putOILakh: 6.8,
-      putOIChg: -42,
-      putVolume: 4000,
-      putDelta: -0.68,
-      putGamma: 0.012,
-      putTheta: -22.7,
-      putVega: 20.7,
-    },
-    {
-      strike: 25350,
-      callOIChg: 42,
-      callOILakh: 78.0,
-      callOI: 3,
-      callLTP: 3.05,
-      callVolume: 4200,
-      callDelta: 0.27,
-      callGamma: 0.013,
-      callTheta: -24.2,
-      callVega: 22.0,
-      iv: 13.5,
-      putLTP: 350.6,
-      putOI: 1,
-      putOILakh: 1.1,
-      putOIChg: -13,
-      putVolume: 4300,
-      putDelta: -0.73,
-      putGamma: 0.013,
-      putTheta: -23.9,
-      putVega: 22.0,
-    },
-    {
-      strike: 25400,
-      callOIChg: 72,
-      callOILakh: 108.6,
-      callOI: 2,
-      callLTP: 2.25,
-      callVolume: 4500,
-      callDelta: 0.22,
-      callGamma: 0.014,
-      callTheta: -25.3,
-      callVega: 23.3,
-      iv: 12.5,
-      putLTP: 301.15,
-      putOI: 1,
-      putOILakh: 1.9,
-      putOIChg: -25,
-      putVolume: 4600,
-      putDelta: -0.78,
-      putGamma: 0.014,
-      putTheta: -22.7,
-      putVega: 23.3,
-    },
-    {
-      strike: 25450,
-      callOIChg: 21,
-      callOILakh: 56.4,
-      callOI: 1,
-      callLTP: 1.7,
-      callVolume: 4800,
-      callDelta: 0.17,
-      callGamma: 0.015,
-      callTheta: -26.4,
-      callVega: 24.6,
-      iv: 13.5,
-      putLTP: 350.6,
-      putOI: 0,
-      putOILakh: 0.3,
-      putOIChg: -47,
-      putVolume: 4900,
-      putDelta: -0.83,
-      putGamma: 0.015,
-      putTheta: -23.9,
-      putVega: 24.6,
-    },
-  ]
+  const futuresData = selectedFuture ? {
+    price: selectedFuture.last_price,
+    change: Number((selectedFuture.last_price - selectedFuture.prev_close).toFixed(2)),
+    changePercent: Number((((selectedFuture.last_price - selectedFuture.prev_close) / selectedFuture.prev_close) * 100).toFixed(2)),
+  } : futureData.length > 0 ? {
+    // Use first available future as fallback if selectedFuture is not found
+    price: futureData[0].last_price,
+    change: Number((futureData[0].last_price - futureData[0].prev_close).toFixed(2)),
+    changePercent: Number((((futureData[0].last_price - futureData[0].prev_close) / futureData[0].prev_close) * 100).toFixed(2)),
+  } : {
+    price: 0,
+    change: 0,
+    changePercent: 0,
+  }
 
-  const maxCallOI = Math.max(...optionData.map((d) => d.callOI))
-  const maxPutOI = Math.max(...optionData.map((d) => d.putOI))
-  const maxCallVolume = Math.max(...optionData.map((d) => d.callVolume))
-  const maxPutVolume = Math.max(...optionData.map((d) => d.putVolume))
+  // Filter data by selected expiry (client-side filtering) with robust matching
+  const expiryFilteredData = (selectedExpiry && optionData.length > 0)
+    ? optionData.filter(item => {
+        const optionExpiry = item.expiry_date
+        const selectedExpiryFormatted = selectedExpiry
+
+        // Try exact match first
+        if (optionExpiry === selectedExpiryFormatted) return true
+
+        // Try date format matching (remove time part if present)
+        const optionExpiryDate = optionExpiry?.split('T')[0]
+        const selectedExpiryDate = selectedExpiryFormatted?.split('T')[0]
+
+        return optionExpiryDate === selectedExpiryDate
+      })
+    : optionData
+
+  // Use expiry filtered data, or fallback to all data if filtering results in empty
+  const finalOptionData = expiryFilteredData.length > 0 ? expiryFilteredData :
+                         (optionData.length > 0 ? optionData : [])
+
+
+  // Transform API data to component format
+  const transformedOptionData: OptionData[] = finalOptionData.map((item, index) => {
+    // Use the selected future's last_price as the current price for ATM calculation
+    const currentPrice = selectedFuture?.last_price || futureData[0]?.last_price || item.index_close
+    const isATM = Math.abs(currentPrice - item.strike_price) < 50
+    return {
+      strike: item.strike_price,
+      callOIChg: item.calls_change_oi,
+      callOILakh: item.calls_oi / 100000, // Convert to lakhs
+      callOI: item.calls_oi,
+      callLTP: item.calls_ltp,
+      callVolume: item.calls_volume,
+      callDelta: item.call_delta,
+      callGamma: item.call_gamma,
+      callTheta: item.call_theta,
+      callVega: item.call_vega,
+      iv: item.calls_iv,
+      putLTP: item.puts_ltp,
+      putOI: item.puts_oi,
+      putOILakh: item.puts_oi / 100000, // Convert to lakhs
+      putOIChg: item.puts_change_oi,
+      putVolume: item.puts_volume,
+      putDelta: item.put_delta,
+      putGamma: item.put_gamma,
+      putTheta: item.put_theta,
+      putVega: item.put_vega,
+      isATM: isATM,
+    }
+  })
+
+
+  const maxCallOI = transformedOptionData.length > 0 ? Math.max(...transformedOptionData.map((d) => d.callOI)) : 0
+  const maxPutOI = transformedOptionData.length > 0 ? Math.max(...transformedOptionData.map((d) => d.putOI)) : 0
+  const maxCallVolume = transformedOptionData.length > 0 ? Math.max(...transformedOptionData.map((d) => d.callVolume)) : 0
+  const maxPutVolume = transformedOptionData.length > 0 ? Math.max(...transformedOptionData.map((d) => d.putVolume)) : 0
 
   const getOIBarWidth = (oi: number, maxOI: number) => {
     return Math.max((oi / maxOI) * 100, 2)
@@ -391,16 +213,62 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
       return data.filter((d) => customStrikes.includes(d.strike))
     } else {
       // Default ATM± logic
-      if (strikeRange === "ALL") return data
-      const atmStrike = data.find((d) => d.isATM)?.strike || 25100
+      if (strikeRange === "ALL") {
+        return data
+      }
+
+      // Find ATM strike from selected future data
+      const atmStrike = selectedFuture?.last_price || futureData[0]?.last_price || 25100
       const range = Number.parseInt(strikeRange.replace("ATM±", ""))
       const minStrike = atmStrike - range * 50
       const maxStrike = atmStrike + range * 50
+
       return data.filter((d) => d.strike >= minStrike && d.strike <= maxStrike)
     }
   }
 
-  const filteredData = filterStrikesByRange(optionData)
+  const filteredData = filterStrikesByRange(transformedOptionData)
+
+  // If filtered data is empty, show all data
+  const displayData = filteredData.length > 0 ? filteredData : transformedOptionData
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground">Loading option chain data...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <p className="text-red-600 font-medium">Error loading option chain data</p>
+              <p className="text-muted-foreground text-sm">{error}</p>
+              <Button
+                onClick={() => window.location.reload()}
+                variant="outline"
+              >
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -430,7 +298,11 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
             <div className="text-center">
               <p className="text-xs sm:text-sm text-muted-foreground">Expiry</p>
               <Badge variant="outline" className="text-xs">
-                {expiry}
+                {new Date(selectedExpiry).toLocaleDateString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })}
               </Badge>
             </div>
             <div className="text-center">
@@ -446,7 +318,35 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
       <Card>
         <CardHeader>
           <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:justify-between sm:items-center">
+            <div className="flex flex-col space-y-2">
             <CardTitle className="text-base sm:text-lg">Option Chain</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Expiry:</span>
+                <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {futureData.length > 0 ? (
+                      [...new Set(futureData.map(item => item.expiry))].map((expiryDate) => {
+                        const formattedDate = new Date(expiryDate).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })
+                        return (
+                          <SelectItem key={expiryDate} value={expiryDate}>
+                            {formattedDate}
+                          </SelectItem>
+                        )
+                      })
+                    ) : (
+                      <SelectItem value="" disabled>Loading expiry dates...</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Select value={viewMode} onValueChange={setViewMode}>
@@ -541,7 +441,7 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
 
               {/* Data rows */}
               <div className="space-y-1 p-2">
-                {filteredData.map((row) => (
+                {displayData.map((row) => (
                   <div
                     key={row.strike}
                     className={`grid gap-1 py-2 px-2 text-xs sm:text-sm border-b hover:bg-muted/30 rounded-sm transition-colors ${
@@ -641,7 +541,10 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
               <CardContent className="p-4">
                 <h4 className="font-semibold text-red-600 mb-2 text-sm sm:text-base">Total Call OI</h4>
                 <p className="text-xl sm:text-2xl font-bold">
-                  {filteredData.reduce((sum, d) => sum + d.callOI, 0).toFixed(0)}
+                  {displayData.reduce((sum, d) => sum + d.callOI, 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Change: {displayData.reduce((sum, d) => sum + d.callOIChg, 0) > 0 ? '+' : ''}{displayData.reduce((sum, d) => sum + d.callOIChg, 0).toLocaleString()}
                 </p>
               </CardContent>
             </Card>
@@ -649,7 +552,10 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
               <CardContent className="p-4">
                 <h4 className="font-semibold text-green-600 mb-2 text-sm sm:text-base">Total Put OI</h4>
                 <p className="text-xl sm:text-2xl font-bold">
-                  {filteredData.reduce((sum, d) => sum + d.putOI, 0).toFixed(0)}
+                  {displayData.reduce((sum, d) => sum + d.putOI, 0).toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Change: {displayData.reduce((sum, d) => sum + d.putOIChg, 0) > 0 ? '+' : ''}{displayData.reduce((sum, d) => sum + d.putOIChg, 0).toLocaleString()}
                 </p>
               </CardContent>
             </Card>

@@ -86,6 +86,41 @@ export interface TodaySpotResponse {
   resultData: TodaySpotData;
 }
 
+export interface FutureExpiryData {
+  symbol_name: string;
+  prev_close: number;
+  instrument_token: number;
+  exchange_token: number;
+  trading_symbol: string;
+  future_date: string | null;
+  expiry: string;
+  instrument_type: string | null;
+  segment: string | null;
+  exchange: string | null;
+  timestamp: string | null;
+  last_trade_time: string | null;
+  tick_size: number;
+  lot_size: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  valume: number;
+  average_price: number;
+  net_change: number;
+  oi: number;
+  oi_day_high: number;
+  oi_day_low: number;
+  last_price: number;
+  prev_oi: number;
+}
+
+export interface FutureExpiryResponse {
+  result: number;
+  resultMessage: string;
+  resultData: FutureExpiryData[];
+}
+
 export interface TrendingOIData {
   sr_no: number;
   time: string;
@@ -381,7 +416,7 @@ export async function fetchOITimeRangeData(
 }
 
 // Fetch future expiry data
-export async function fetchFutureExpiryData(symbol: string = 'nifty'): Promise<any[]> {
+export async function fetchFutureExpiryData(symbol: string = 'nifty'): Promise<FutureExpiryData[]> {
   try {
     const params = new URLSearchParams({
       symbol: symbol.toLowerCase()
@@ -399,7 +434,7 @@ export async function fetchFutureExpiryData(symbol: string = 'nifty'): Promise<a
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: FutureExpiryResponse = await response.json();
 
     if (data.result !== 1) {
       throw new Error(data.resultMessage || 'Failed to fetch future expiry data');
