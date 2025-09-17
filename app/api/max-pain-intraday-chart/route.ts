@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
@@ -58,3 +57,4 @@ export async function OPTIONS() {
     },
   })
 }
+

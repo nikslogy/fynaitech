@@ -1,163 +1,471 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react"
+import {
+  fetchFIIDIIData,
+  fetchFIIDIIDatesData,
+  calculateRollingAverage,
+  calculateCumulativeTotals,
+  getTodayData,
+  formatFIIDIValue,
+  getActivitySentiment,
+  type FIIDIIDailyData,
+  type FIIDIIMonthlyData
+} from "@/lib/api"
 
 export default function FIIDIIFlows() {
-  // Mock FII/DII flows data
-  const flowsData = [
-    {
-      date: "2024-01-25",
-      fiiIndexFuturesBuy: 2850,
-      fiiIndexFuturesSell: 2650,
-      fiiIndexFuturesNet: 200,
-      fiiIndexOptionsNetCalls: 1250,
-      fiiIndexOptionsNetPuts: -850,
-      diiCashNet: 1850,
-      rollingNet: 3200,
-      cumulativeNet: 15600,
-    },
-    {
-      date: "2024-01-24",
-      fiiIndexFuturesBuy: 3200,
-      fiiIndexFuturesSell: 2950,
-      fiiIndexFuturesNet: 250,
-      fiiIndexOptionsNetCalls: 1450,
-      fiiIndexOptionsNetPuts: -950,
-      diiCashNet: 2150,
-      rollingNet: 3400,
-      cumulativeNet: 15400,
-    },
-    {
-      date: "2024-01-23",
-      fiiIndexFuturesBuy: 2950,
-      fiiIndexFuturesSell: 3150,
-      fiiIndexFuturesNet: -200,
-      fiiIndexOptionsNetCalls: 950,
-      fiiIndexOptionsNetPuts: -650,
-      diiCashNet: 1650,
-      rollingNet: 2800,
-      cumulativeNet: 15150,
-    },
-    {
-      date: "2024-01-22",
-      fiiIndexFuturesBuy: 2750,
-      fiiIndexFuturesSell: 2850,
-      fiiIndexFuturesNet: -100,
-      fiiIndexOptionsNetCalls: 850,
-      fiiIndexOptionsNetPuts: -750,
-      diiCashNet: 1950,
-      rollingNet: 2950,
-      cumulativeNet: 15350,
-    },
-    {
-      date: "2024-01-19",
-      fiiIndexFuturesBuy: 3150,
-      fiiIndexFuturesSell: 2850,
-      fiiIndexFuturesNet: 300,
-      fiiIndexOptionsNetCalls: 1350,
-      fiiIndexOptionsNetPuts: -1050,
-      diiCashNet: 2250,
-      rollingNet: 3500,
-      cumulativeNet: 15450,
-    },
-  ]
+  const [dailyData, setDailyData] = useState<FIIDIIDailyData[]>([])
+  const [monthlyData, setMonthlyData] = useState<FIIDIIMonthlyData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState('daily')
+  const [selectedMonth, setSelectedMonth] = useState('2025-09')
+
+  useEffect(() => {
+    loadData()
+  }, [selectedPeriod, selectedMonth])
+
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      if (selectedPeriod === 'daily') {
+        const { dailyData: data, monthlyData: monthly } = await fetchFIIDIIData('daily', selectedMonth)
+        setDailyData(data)
+        setMonthlyData(monthly)
+      } else {
+        const { dailyData: data, monthlyData: monthly } = await fetchFIIDIIData('yearly', selectedMonth.split('-')[0])
+        setDailyData(data)
+        setMonthlyData(monthly)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const todayData = getTodayData(dailyData)
+  const rollingAvg = calculateRollingAverage(dailyData, 5)
+  const cumulative = calculateCumulativeTotals(dailyData)
+  const sentiment = todayData ? getActivitySentiment(todayData.fii_net_value, todayData.dii_net_value) : { sentiment: 'Neutral', color: 'neutral' as const }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+  }
+
+  const getValueColor = (value: number) => {
+    if (value > 0) return 'text-bullish'
+    if (value < 0) return 'text-bearish'
+    return 'text-muted-foreground'
+  }
+
+  const getValueIcon = (value: number) => {
+    if (value > 0) return <TrendingUp className="w-4 h-4" />
+    if (value < 0) return <TrendingDown className="w-4 h-4" />
+    return <Minus className="w-4 h-4" />
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="pb-2">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card className="animate-pulse">
+          <CardHeader>
+            <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex space-x-4">
+                  <div className="h-4 bg-gray-200 rounded w-1/6"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/6"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/6"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/6"></div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200">
+          <CardContent className="pt-6">
+            <div className="text-center text-red-600">
+              <p className="text-lg font-semibold">Error loading data</p>
+              <p className="text-sm mt-2">{error}</p>
+              <Button
+                onClick={loadData}
+                variant="outline"
+                className="mt-4"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header with Controls */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">FII/DII Activity Dashboard</h1>
+          <p className="text-muted-foreground">Real-time institutional flow analysis for option traders</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+          {selectedPeriod === 'daily' && (
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2025-09">Sep 2025</SelectItem>
+                <SelectItem value="2025-08">Aug 2025</SelectItem>
+                <SelectItem value="2025-07">Jul 2025</SelectItem>
+                <SelectItem value="2025-06">Jun 2025</SelectItem>
+                <SelectItem value="2025-05">May 2025</SelectItem>
+                <SelectItem value="2025-04">Apr 2025</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={loadData} variant="outline" size="sm">
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Market Sentiment Indicator */}
       <Card>
         <CardHeader>
-          <CardTitle>FII/DII Flows Analysis</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Market Sentiment
+            <Badge
+              variant={sentiment.color === 'bullish' ? 'default' : sentiment.color === 'bearish' ? 'destructive' : 'secondary'}
+              className="text-xs"
+            >
+              {sentiment.sentiment}
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>FII Index Futures Buy</TableHead>
-                  <TableHead>FII Index Futures Sell</TableHead>
-                  <TableHead>FII Index Futures Net</TableHead>
-                  <TableHead>FII Options Net Calls</TableHead>
-                  <TableHead>FII Options Net Puts</TableHead>
-                  <TableHead>DII Cash Net</TableHead>
-                  <TableHead>Rolling Net (5D)</TableHead>
-                  <TableHead>Cumulative Net</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {flowsData.map((row, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{row.date}</TableCell>
-                    <TableCell className="text-bullish">₹{row.fiiIndexFuturesBuy} Cr</TableCell>
-                    <TableCell className="text-bearish">₹{row.fiiIndexFuturesSell} Cr</TableCell>
-                    <TableCell
-                      className={`font-medium ${row.fiiIndexFuturesNet > 0 ? "text-bullish" : "text-bearish"}`}
-                    >
-                      ₹{row.fiiIndexFuturesNet > 0 ? "+" : ""}
-                      {row.fiiIndexFuturesNet} Cr
-                    </TableCell>
-                    <TableCell className="text-bullish">₹{row.fiiIndexOptionsNetCalls} Cr</TableCell>
-                    <TableCell className="text-bearish">₹{row.fiiIndexOptionsNetPuts} Cr</TableCell>
-                    <TableCell className={`font-medium ${row.diiCashNet > 0 ? "text-bullish" : "text-bearish"}`}>
-                      ₹{row.diiCashNet > 0 ? "+" : ""}
-                      {row.diiCashNet} Cr
-                    </TableCell>
-                    <TableCell className={`font-medium ${row.rollingNet > 0 ? "text-bullish" : "text-bearish"}`}>
-                      ₹{row.rollingNet > 0 ? "+" : ""}
-                      {row.rollingNet} Cr
-                    </TableCell>
-                    <TableCell className={`font-bold ${row.cumulativeNet > 0 ? "text-bullish" : "text-bearish"}`}>
-                      ₹{row.cumulativeNet > 0 ? "+" : ""}
-                      {row.cumulativeNet} Cr
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-sm text-muted-foreground">FII Activity</p>
+              <p className={`text-lg font-semibold ${todayData?.fii_net_value ? getValueColor(todayData.fii_net_value) : ''}`}>
+                {todayData ? formatFIIDIValue(todayData.fii_net_value) : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">DII Activity</p>
+              <p className={`text-lg font-semibold ${todayData?.dii_net_value ? getValueColor(todayData.dii_net_value) : ''}`}>
+                {todayData ? formatFIIDIValue(todayData.dii_net_value) : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Nifty Change</p>
+              <p className={`text-lg font-semibold ${todayData?.change_value ? getValueColor(todayData.change_value) : ''}`}>
+                {todayData ? `${todayData.change_value > 0 ? '+' : ''}${todayData.change_value.toFixed(2)} (${todayData.change_per > 0 ? '+' : ''}${todayData.change_per.toFixed(2)}%)` : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Combined Flow</p>
+              <p className={`text-lg font-semibold ${todayData ? getValueColor(todayData.fii_net_value + todayData.dii_net_value) : ''}`}>
+                {todayData ? formatFIIDIValue(todayData.fii_net_value + todayData.dii_net_value) : 'N/A'}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
+      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Today's FII Net</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              Today's FII Net
+              {todayData && getValueIcon(todayData.fii_net_value)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-bullish">₹200 Cr</div>
-            <p className="text-sm text-muted-foreground">Index Futures</p>
+            <div className={`text-2xl font-bold ${todayData?.fii_net_value ? getValueColor(todayData.fii_net_value) : ''}`}>
+              {todayData ? formatFIIDIValue(todayData.fii_net_value) : 'N/A'}
+            </div>
+            <p className="text-sm text-muted-foreground">Latest trading session</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Today's DII Net</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              Today's DII Net
+              {todayData && getValueIcon(todayData.dii_net_value)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-bullish">₹1,850 Cr</div>
-            <p className="text-sm text-muted-foreground">Cash Segment</p>
+            <div className={`text-2xl font-bold ${todayData?.dii_net_value ? getValueColor(todayData.dii_net_value) : ''}`}>
+              {todayData ? formatFIIDIValue(todayData.dii_net_value) : 'N/A'}
+            </div>
+            <p className="text-sm text-muted-foreground">Domestic institutional</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">5-Day Rolling</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              5-Day Rolling Avg
+              {getValueIcon(rollingAvg.combinedRollingAvg)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-bullish">₹3,200 Cr</div>
-            <p className="text-sm text-muted-foreground">Combined Net</p>
+            <div className={`text-2xl font-bold ${getValueColor(rollingAvg.combinedRollingAvg)}`}>
+              {formatFIIDIValue(rollingAvg.combinedRollingAvg)}
+            </div>
+            <p className="text-sm text-muted-foreground">Combined FII+DII</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Monthly Cumulative</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              Monthly Cumulative
+              {getValueIcon(cumulative.combinedCumulative)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-bullish">₹15,600 Cr</div>
-            <p className="text-sm text-muted-foreground">Total Inflows</p>
+            <div className={`text-2xl font-bold ${getValueColor(cumulative.combinedCumulative)}`}>
+              {formatFIIDIValue(cumulative.combinedCumulative)}
+            </div>
+            <p className="text-sm text-muted-foreground">Total inflows</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Data Tables */}
+      <Tabs defaultValue="daily" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="daily">Daily Activity</TabsTrigger>
+          <TabsTrigger value="monthly">Monthly Summary</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="daily">
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily FII/DII Activity</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Real-time institutional flows and market impact analysis
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>FII Net</TableHead>
+                      <TableHead>DII Net</TableHead>
+                      <TableHead>Combined</TableHead>
+                      <TableHead>Nifty Price</TableHead>
+                      <TableHead>Nifty Change</TableHead>
+                      <TableHead>Activity Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dailyData.slice(0, 10).map((row, index) => {
+                      const combined = row.fii_net_value + row.dii_net_value
+                      const activityType = getActivitySentiment(row.fii_net_value, row.dii_net_value)
+
+                      return (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">
+                            {formatDate(row.created_at)}
+                          </TableCell>
+                          <TableCell className={`font-medium ${getValueColor(row.fii_net_value)}`}>
+                            {formatFIIDIValue(row.fii_net_value)}
+                          </TableCell>
+                          <TableCell className={`font-medium ${getValueColor(row.dii_net_value)}`}>
+                            {formatFIIDIValue(row.dii_net_value)}
+                          </TableCell>
+                          <TableCell className={`font-bold ${getValueColor(combined)}`}>
+                            {formatFIIDIValue(combined)}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            ₹{row.last_trade_price.toLocaleString('en-IN')}
+                          </TableCell>
+                          <TableCell className={`font-medium ${getValueColor(row.change_value)}`}>
+                            {row.change_value > 0 ? '+' : ''}{row.change_value.toFixed(2)}
+                            <span className="text-xs ml-1">
+                              ({row.change_per > 0 ? '+' : ''}{row.change_per.toFixed(2)}%)
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={activityType.color === 'bullish' ? 'default' : activityType.color === 'bearish' ? 'destructive' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {activityType.sentiment}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="monthly">
+          <Card>
+            <CardHeader>
+              <CardTitle>Monthly Summary</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Aggregated institutional activity by month
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Month</TableHead>
+                      <TableHead>FII Net</TableHead>
+                      <TableHead>DII Net</TableHead>
+                      <TableHead>Combined</TableHead>
+                      <TableHead>Avg Nifty</TableHead>
+                      <TableHead>Total Volume</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {monthlyData.map((row, index) => {
+                      const combined = row.fii_net_value + row.dii_net_value
+                      const totalVolume = (row.fii_buy_value || 0) + (row.fii_sell_value || 0) + (row.dii_buy_value || 0) + (row.dii_sell_value || 0)
+
+                      return (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">
+                            {new Date(row.month + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                          </TableCell>
+                          <TableCell className={`font-medium ${getValueColor(row.fii_net_value)}`}>
+                            {formatFIIDIValue(row.fii_net_value)}
+                          </TableCell>
+                          <TableCell className={`font-medium ${getValueColor(row.dii_net_value)}`}>
+                            {formatFIIDIValue(row.dii_net_value)}
+                          </TableCell>
+                          <TableCell className={`font-bold ${getValueColor(combined)}`}>
+                            {formatFIIDIValue(combined)}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            ₹{row.last_trade_price.toLocaleString('en-IN')}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formatFIIDIValue(totalVolume)}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Trading Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Option Trading Insights</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm">FII Buying Pressure</span>
+              <Badge variant={todayData?.fii_net_value ? (todayData.fii_net_value > 1000 ? 'default' : 'secondary') : 'secondary'}>
+                {todayData?.fii_net_value ? (todayData.fii_net_value > 1000 ? 'High' : 'Low') : 'N/A'}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">DII Support Level</span>
+              <Badge variant={todayData?.dii_net_value ? (todayData.dii_net_value > 2000 ? 'default' : 'secondary') : 'secondary'}>
+                {todayData?.dii_net_value ? (todayData.dii_net_value > 2000 ? 'Strong' : 'Weak') : 'N/A'}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Market Direction Bias</span>
+              <Badge variant={sentiment.color === 'bullish' ? 'default' : sentiment.color === 'bearish' ? 'destructive' : 'secondary'}>
+                {sentiment.sentiment}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Risk Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Volatility Expectation</span>
+              <Badge variant="outline">
+                {Math.abs(todayData?.change_per || 0) > 1 ? 'High' : 'Moderate'}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Flow Consistency</span>
+              <Badge variant="outline">
+                {rollingAvg.combinedRollingAvg > 1000 ? 'Stable' : 'Variable'}
+              </Badge>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm">Position Sizing</span>
+              <Badge variant="outline">
+                {Math.abs(cumulative.combinedCumulative) > 10000 ? 'Large' : 'Moderate'}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
       </div>

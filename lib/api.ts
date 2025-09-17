@@ -584,3 +584,210 @@ export function getStrength(changePercent: number): 'Bullish' | 'Bearish' | 'Neu
   if (changePercent < -0.5) return 'Bearish';
   return 'Neutral';
 }
+
+// FII/DII Data Types
+export interface FIIDIIDailyData {
+  created_at: string;
+  fii_buy_value?: number;
+  fii_sell_value?: number;
+  fii_net_value: number;
+  dii_buy_value?: number;
+  dii_sell_value?: number;
+  dii_net_value: number;
+  symbol_name: string;
+  last_trade_price: number;
+  change_value: number;
+  change_per: number;
+}
+
+export interface FIIDIIMonthlyData {
+  month: string;
+  created_at: string;
+  fii_buy_value: number;
+  fii_sell_value: number;
+  fii_net_value: number;
+  dii_buy_value: number;
+  dii_sell_value: number;
+  dii_net_value: number;
+  symbol_name: string;
+  last_trade_price: number;
+  change_value: number;
+  change_per: number;
+}
+
+export interface FIIDIIDatesData {
+  symbol_name: string;
+  last_trade_price: number;
+  created_at: string;
+  change_value: number;
+  change_per: number;
+  fii_net_value: number;
+  dii_net_value: number;
+}
+
+export interface FIIDIIDatesResponse {
+  result: number;
+  resultMessage: string;
+  resultData: {
+    indices_data: FIIDIIDatesData[];
+    months: string[];
+    year: string[];
+  };
+}
+
+export interface FIIDIIDataResponse {
+  result: number;
+  resultMessage: string;
+  resultData: {
+    fii_dii_data: FIIDIIDailyData[];
+    fii_dii_summary_data: FIIDIIMonthlyData[];
+  };
+}
+
+// Fetch FII/DII activity data for a specific year/month
+export async function fetchFIIDIIData(requestType: 'daily' | 'yearly' = 'daily', yearMonth?: string): Promise<{
+  dailyData: FIIDIIDailyData[];
+  monthlyData: FIIDIIMonthlyData[];
+}> {
+  try {
+    const params = new URLSearchParams({
+      request_type: requestType,
+      ...(yearMonth && { year_month: yearMonth })
+    });
+
+    const response = await fetch(`${BASE_URL}/fii-dii-activity-data?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: FIIDIIDataResponse = await response.json();
+
+    if (data.result !== 1) {
+      throw new Error(data.resultMessage || 'Failed to fetch FII/DII data');
+    }
+
+    return {
+      dailyData: data.resultData.fii_dii_data,
+      monthlyData: data.resultData.fii_dii_summary_data
+    };
+  } catch (error) {
+    console.error('Error fetching FII/DII data:', error);
+    return {
+      dailyData: [],
+      monthlyData: []
+    };
+  }
+}
+
+// Fetch latest FII/DII data with dates
+export async function fetchFIIDIIDatesData(): Promise<{
+  indicesData: FIIDIIDatesData[];
+  months: string[];
+  years: string[];
+}> {
+  try {
+    const response = await fetch(`${BASE_URL}/fii-dii-activity-dates`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: FIIDIIDatesResponse = await response.json();
+
+    if (data.result !== 1) {
+      throw new Error(data.resultMessage || 'Failed to fetch FII/DII dates data');
+    }
+
+    return {
+      indicesData: data.resultData.indices_data,
+      months: data.resultData.months,
+      years: data.resultData.year
+    };
+  } catch (error) {
+    console.error('Error fetching FII/DII dates data:', error);
+    return {
+      indicesData: [],
+      months: [],
+      years: []
+    };
+  }
+}
+
+// Helper function to calculate rolling averages
+export function calculateRollingAverage(data: FIIDIIDailyData[], days: number = 5): {
+  fiiRollingAvg: number;
+  diiRollingAvg: number;
+  combinedRollingAvg: number;
+} {
+  if (data.length < days) {
+    return { fiiRollingAvg: 0, diiRollingAvg: 0, combinedRollingAvg: 0 };
+  }
+
+  const recentData = data.slice(0, days);
+  const fiiRollingAvg = recentData.reduce((sum, item) => sum + item.fii_net_value, 0) / days;
+  const diiRollingAvg = recentData.reduce((sum, item) => sum + item.dii_net_value, 0) / days;
+  const combinedRollingAvg = fiiRollingAvg + diiRollingAvg;
+
+  return { fiiRollingAvg, diiRollingAvg, combinedRollingAvg };
+}
+
+// Helper function to calculate cumulative totals
+export function calculateCumulativeTotals(data: FIIDIIDailyData[]): {
+  fiiCumulative: number;
+  diiCumulative: number;
+  combinedCumulative: number;
+} {
+  const fiiCumulative = data.reduce((sum, item) => sum + item.fii_net_value, 0);
+  const diiCumulative = data.reduce((sum, item) => sum + item.dii_net_value, 0);
+  const combinedCumulative = fiiCumulative + diiCumulative;
+
+  return { fiiCumulative, diiCumulative, combinedCumulative };
+}
+
+// Helper function to get today's data
+export function getTodayData(data: FIIDIIDailyData[]): FIIDIIDailyData | null {
+  if (data.length === 0) return null;
+  return data[0]; // Assuming data is sorted by date (latest first)
+}
+
+// Helper function to format FII/DII values for display
+export function formatFIIDIValue(value: number): string {
+  const absValue = Math.abs(value);
+  const formattedValue = formatNumber(absValue);
+
+  if (value >= 0) {
+    return `₹${formattedValue} Cr`;
+  } else {
+    return `-₹${formattedValue} Cr`;
+  }
+}
+
+// Helper function to get activity sentiment
+export function getActivitySentiment(fiiNet: number, diiNet: number): {
+  sentiment: 'Strong Bullish' | 'Bullish' | 'Neutral' | 'Bearish' | 'Strong Bearish';
+  color: 'bullish' | 'neutral' | 'bearish';
+} {
+  const combined = fiiNet + diiNet;
+  const absCombined = Math.abs(combined);
+
+  if (absCombined < 1000) return { sentiment: 'Neutral', color: 'neutral' };
+  if (combined > 5000) return { sentiment: 'Strong Bullish', color: 'bullish' };
+  if (combined > 1000) return { sentiment: 'Bullish', color: 'bullish' };
+  if (combined < -5000) return { sentiment: 'Strong Bearish', color: 'bearish' };
+  if (combined < -1000) return { sentiment: 'Bearish', color: 'bearish' };
+
+  return { sentiment: 'Neutral', color: 'neutral' };
+}

@@ -1,4 +1,4 @@
-link - https://webapi.niftytrader.in/webapi/Resource/fii-dii-activity-data?request_type=yearly&year_month=2025
+link1 - https://webapi.niftytrader.in/webapi/Resource/fii-dii-activity-data?request_type=yearly&year_month=2025
 
 output-
 {
