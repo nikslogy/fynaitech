@@ -417,6 +417,167 @@ export function generateStrikePrices(currentPrice: number, range: string): strin
   return `${atmPrice-500},${atmPrice-450},${atmPrice-400},${atmPrice-350},${atmPrice-300},${atmPrice-250},${atmPrice-200},${atmPrice-150},${atmPrice-100},${atmPrice-50},${atmPrice},${atmPrice+50},${atmPrice+100},${atmPrice+150},${atmPrice+200},${atmPrice+250},${atmPrice+300},${atmPrice+350},${atmPrice+400},${atmPrice+450},${atmPrice+500}`;
 }
 
+export interface OptionChainData {
+  symbol_name: string;
+  expiry_date: string;
+  strike_price: number;
+  call_inst_type?: string;
+  calls_change_oi: number;
+  calls_net_change: number;
+  calls_iv: number;
+  calls_ltp: number;
+  calls_oi: number;
+  calls_oi_value: number;
+  calls_change_oi_value: number;
+  calls_ltp_per: number;
+  calls_high: number;
+  calls_low: number;
+  calls_bid_price: number;
+  calls_bid_quantity: number;
+  calls_offer_price: number;
+  calls_offer_quantity: number;
+  calls_average_price: number;
+  calls_intrisic: number;
+  calls_time_value: number;
+  index_close: number;
+  put_inst_type?: string;
+  puts_change_oi: number;
+  puts_net_change: number;
+  puts_iv: number;
+  puts_ltp: number;
+  puts_oi: number;
+  puts_oi_value: number;
+  puts_change_oi_value: number;
+  puts_ltp_per: number;
+  puts_high: number;
+  puts_low: number;
+  puts_bid_price: number;
+  puts_bid_quantity: number;
+  puts_offer_price: number;
+  puts_offer_quantity: number;
+  puts_average_price: number;
+  puts_intrisic: number;
+  puts_time_value: number;
+  created_at: string;
+  time: string;
+  calls_volume: number;
+  puts_volume: number;
+  pcr: number;
+  call_delta: number;
+  call_gamma: number;
+  call_vega: number;
+  call_theta: number;
+  call_rho: number;
+  calls_builtup: string;
+  put_delta: number;
+  put_gamma: number;
+  put_vega: number;
+  put_theta: number;
+  put_rho: number;
+  puts_builtup: string;
+}
+
+export interface OptionChainCalculatorResponse {
+  result: number;
+  resultMessage: string;
+  resultData: {
+    opExpiryDates: string[];
+    opDatas: OptionChainData[];
+  };
+}
+
+export interface OptionChainDataResponse {
+  result: number;
+  resultMessage: string;
+  resultData: {
+    opDatas: OptionChainData[];
+  };
+}
+
+// Fetch option chain calculator data
+export async function fetchOptionChainCalculatorData(
+  symbol: string = 'nifty',
+  expiryDate?: string,
+  createdTime: string = '09:20:00',
+  atmBelow: string = '20',
+  atmAbove: string = '20'
+): Promise<OptionChainData[]> {
+  try {
+    const params = new URLSearchParams({
+      symbol: symbol.toLowerCase(),
+      ...(expiryDate && { expiryDate }),
+      createdTime,
+      atmBelow,
+      atmAbove
+    });
+
+    const response = await fetch(`${BASE_URL}/option-chain-calculator-data?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: OptionChainCalculatorResponse = await response.json();
+
+    if (data.result !== 1) {
+      throw new Error(data.resultMessage || 'Failed to fetch option chain calculator data');
+    }
+
+    return data.resultData.opDatas;
+  } catch (error) {
+    console.error('Error fetching option chain calculator data:', error);
+    return [];
+  }
+}
+
+// Fetch option chain data
+export async function fetchOptionChainData(
+  symbol: string = 'nifty',
+  exchange: string = 'nse',
+  expiryDate?: string,
+  atmBelow: string = '0',
+  atmAbove: string = '0'
+): Promise<OptionChainData[]> {
+  try {
+    const params = new URLSearchParams({
+      symbol: symbol.toLowerCase(),
+      exchange: exchange.toLowerCase(),
+      ...(expiryDate && { expiryDate }),
+      atmBelow,
+      atmAbove
+    });
+
+    const response = await fetch(`${BASE_URL}/option-chain-data?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: OptionChainDataResponse = await response.json();
+
+    if (data.result !== 1) {
+      throw new Error(data.resultMessage || 'Failed to fetch option chain data');
+    }
+
+    return data.resultData.opDatas;
+  } catch (error) {
+    console.error('Error fetching option chain data:', error);
+    return [];
+  }
+}
+
 // Helper function to get strength indicator
 export function getStrength(changePercent: number): 'Bullish' | 'Bearish' | 'Neutral' {
   if (changePercent > 0.5) return 'Bullish';

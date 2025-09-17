@@ -1232,7 +1232,7 @@ export default function FynAIPage() {
             <OptionDataIndicator
               instrument={selectedInstrument}
               expiry={selectedExpiry}
-              timeframe={selectedTimeframe}
+              strikeRange={activeStrikeRange}
             />
           </TabsContent>
         </Tabs>
