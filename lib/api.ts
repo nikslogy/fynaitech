@@ -93,10 +93,10 @@ export interface OITimeRangeData {
   strike_price: number;
   time: string;
   index_close: number;
-  calls_oi: number;
-  calls_oi_value: number;
-  puts_oi: number;
-  puts_oi_value: number;
+  calls_change_oi: number;
+  calls_change_oi_value: number;
+  puts_change_oi: number;
+  puts_change_oi_value: number;
 }
 
 export interface OITimeRangeResponse {
@@ -345,7 +345,7 @@ export async function fetchOITimeRangeData(
     }
 
     const data: OITimeRangeResponse = await response.json();
-    
+
     if (data.result !== 1) {
       throw new Error(data.resultMessage || 'Failed to fetch OI time range data');
     }

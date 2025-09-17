@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       expiry: expiry // Always include expiry
     })
 
-    const response = await fetch(`https://webapi.niftytrader.in/webapi/Option/oi-time-range?${params}`, {
+    const response = await fetch(`https://webapi.niftytrader.in/webapi/Option/change-oi-time-range?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json()
-    
+
     return NextResponse.json(data, {
       headers: {
         'Access-Control-Allow-Origin': '*',
