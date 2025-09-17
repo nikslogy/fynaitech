@@ -215,8 +215,21 @@ export function getSymbolForAPI(instrument: string): string {
 }
 
 // Helper function to format numbers for display
-export function formatNumber(num: number, decimals: number = 2): string {
-  return num.toLocaleString('en-IN', {
+export function formatNumber(num: number | undefined | null, decimals: number = 2): string {
+  // Only return N/A for truly invalid values
+  if (num === undefined || num === null || (typeof num === 'number' && isNaN(num))) {
+    return "N/A";
+  }
+
+  // Convert to number if it's a string
+  const numericValue = typeof num === 'string' ? parseFloat(num) : num;
+
+  // Check if the conversion resulted in NaN
+  if (isNaN(numericValue)) {
+    return "N/A";
+  }
+
+  return numericValue.toLocaleString('en-IN', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

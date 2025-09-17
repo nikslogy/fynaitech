@@ -1188,7 +1188,7 @@ export default function FynAIPage() {
           </div>
 
           <TabsContent value="dashboard">
-            <Dashboard />
+            <Dashboard marketData={marketData} />
           </TabsContent>
 
           <TabsContent value="option-chain">
