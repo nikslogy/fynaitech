@@ -159,7 +159,10 @@ const IndexCard = ({
   )
 }
 
-const MarketOverview = ({ marketData }: { marketData: any }) => {
+const MarketOverview = ({ marketData, additionalIndices }: {
+  marketData: any,
+  additionalIndices?: any[]
+}) => {
   const niftyData = marketData?.nifty ? {
     symbol_name: "NIFTY 50",
     last_trade_price: marketData.nifty.price,
@@ -168,6 +171,7 @@ const MarketOverview = ({ marketData }: { marketData: any }) => {
     high: marketData.nifty.high,
     low: marketData.nifty.low,
     high52: marketData.nifty.high52,
+    low52: marketData.nifty.low52,
     max_pain: marketData.nifty.maxPain
   } : null
 
@@ -181,66 +185,479 @@ const MarketOverview = ({ marketData }: { marketData: any }) => {
     max_pain: marketData.bankNifty.maxPain
   } : null
 
-  // Calculate overall market sentiment based on major indices (NIFTY 50, NIFTY BANK)
-  const majorIndices = [niftyData, bankNiftyData].filter(Boolean)
+  // Combine all available indices for comprehensive analysis
+  const allIndices = [
+    niftyData,
+    bankNiftyData,
+    ...(additionalIndices || [])
+  ].filter(Boolean)
 
-  const bullishCount = majorIndices.filter(item => item && item.change_per > 0).length
-  const totalCount = majorIndices.length
-  const bullishPercentage = totalCount > 0 ? (bullishCount / totalCount) * 100 : 0
-  const sentiment = bullishPercentage > 60 ? "Bullish" : bullishPercentage < 40 ? "Bearish" : "Neutral"
-  
-  const currentTime = new Date().toLocaleTimeString('en-IN', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: true 
-  })
+  // Market Sentiment Analysis
+  const bullishCount = allIndices.filter(item => item && item.change_per > 0).length
+  const bearishCount = allIndices.filter(item => item && item.change_per < 0).length
+  const neutralCount = allIndices.filter(item => item && item.change_per === 0).length
+  const totalIndices = allIndices.length
+  const bullishPercentage = totalIndices > 0 ? (bullishCount / totalIndices) * 100 : 0
+
+  const getMarketSentiment = () => {
+    if (bullishPercentage >= 70) return { status: "Strong Bullish", color: "bg-green-500", textColor: "text-green-600" }
+    if (bullishPercentage >= 60) return { status: "Bullish", color: "bg-green-400", textColor: "text-green-600" }
+    if (bullishPercentage >= 40) return { status: "Neutral", color: "bg-yellow-500", textColor: "text-yellow-600" }
+    if (bullishPercentage >= 30) return { status: "Bearish", color: "bg-red-400", textColor: "text-red-600" }
+    return { status: "Strong Bearish", color: "bg-red-500", textColor: "text-red-600" }
+  }
+
+  const sentiment = getMarketSentiment()
+
+  // Volatility Analysis
+  const calculateVolatility = () => {
+    if (!niftyData || !niftyData.high || !niftyData.low || !niftyData.last_trade_price) return null
+
+    const dailyRange = niftyData.high - niftyData.low
+    const volatilityPercent = (dailyRange / niftyData.last_trade_price) * 100
+    const volatilityScore = Math.min(volatilityPercent * 10, 100) // Scale for progress bar
+
+    let volatilityLevel = "Low"
+    if (volatilityPercent > 2.5) volatilityLevel = "High"
+    else if (volatilityPercent > 1.5) volatilityLevel = "Medium"
+
+    return {
+      range: dailyRange,
+      percentage: volatilityPercent,
+      level: volatilityLevel,
+      score: volatilityScore
+    }
+  }
+
+  const volatility = calculateVolatility()
+
+  // Sector Performance Analysis
+  const sectorAnalysis = () => {
+    const sectors = []
+
+    // Large Cap (NIFTY 50)
+    if (niftyData) {
+      sectors.push({
+        name: "Large Cap",
+        change: niftyData.change_per,
+        weight: 60 // NIFTY 50 represents ~60% of market cap
+      })
+    }
+
+    // Banking Sector (NIFTY BANK)
+    if (bankNiftyData) {
+      sectors.push({
+        name: "Banking",
+        change: bankNiftyData.change_per,
+        weight: 25 // Banking sector weight
+      })
+    }
+
+    // Mid Cap (if available from additionalIndices)
+    const midCapIndex = additionalIndices?.find(idx => idx.symbol_name?.includes("MID"))
+    if (midCapIndex) {
+      sectors.push({
+        name: "Mid Cap",
+        change: midCapIndex.change_per,
+        weight: 15
+      })
+    }
+
+    return sectors
+  }
+
+  const sectors = sectorAnalysis()
+
+  // 52-Week Analysis for NIFTY
+  const week52Analysis = () => {
+    if (!niftyData || !niftyData.high52 || !niftyData.low52) return null
+
+    const currentPrice = niftyData.last_trade_price
+    const yearHigh = niftyData.high52
+    const yearLow = niftyData.low52
+
+    const distanceFromHigh = ((yearHigh - currentPrice) / yearHigh) * 100
+    const distanceFromLow = ((currentPrice - yearLow) / yearLow) * 100
+
+    return {
+      distanceFromHigh: distanceFromHigh,
+      distanceFromLow: distanceFromLow,
+      position: distanceFromHigh < 10 ? "Near 52W High" :
+               distanceFromLow < 10 ? "Near 52W Low" : "Mid Range"
+    }
+  }
+
+  const week52 = week52Analysis()
+
+  // Market Breadth Calculation
+  const marketBreadth = () => {
+    const advances = bullishCount
+    const declines = bearishCount
+    const unchanged = neutralCount
+
+    const breadthRatio = declines > 0 ? advances / declines : advances
+    const breadthScore = Math.min(Math.abs(breadthRatio) * 50, 100)
+
+    return {
+      advances,
+      declines,
+      unchanged,
+      ratio: breadthRatio.toFixed(2),
+      score: breadthScore,
+      status: breadthRatio > 1.5 ? "Strong Breadth" :
+              breadthRatio > 1 ? "Positive Breadth" :
+              breadthRatio > 0.7 ? "Mixed Breadth" :
+              breadthRatio > 0.5 ? "Weak Breadth" : "Poor Breadth"
+    }
+  }
+
+  const breadth = marketBreadth()
+
+  // Detailed index analysis
+  const detailedIndexAnalysis = () => {
+    const indices = [
+      ...allIndices,
+      ...(additionalIndices || [])
+    ].filter((index, indexPos, arr) =>
+      arr.findIndex(i => i.symbol_name === index.symbol_name) === indexPos
+    ) // Remove duplicates
+
+    const categorizedIndices = {
+      largeCap: indices.filter(idx => idx.symbol_name?.includes('NIFTY 50')),
+      bankNifty: indices.filter(idx => idx.symbol_name?.includes('NIFTY BANK')),
+      finService: indices.filter(idx => idx.symbol_name?.includes('NIFTY FIN SERVICE')),
+      midCap: indices.filter(idx => idx.symbol_name?.includes('NIFTY MID SELECT')),
+      sensex: indices.filter(idx => idx.symbol_name?.includes('SENSEX')),
+      giftNifty: indices.filter(idx => idx.symbol_name?.includes('GIFT NIFTY')),
+      others: indices.filter(idx =>
+        !idx.symbol_name?.includes('NIFTY 50') &&
+        !idx.symbol_name?.includes('NIFTY BANK') &&
+        !idx.symbol_name?.includes('NIFTY FIN SERVICE') &&
+        !idx.symbol_name?.includes('NIFTY MID SELECT') &&
+        !idx.symbol_name?.includes('SENSEX') &&
+        !idx.symbol_name?.includes('GIFT NIFTY')
+      )
+    }
+
+    return categorizedIndices
+  }
+
+  const categorizedIndices = detailedIndexAnalysis()
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Activity className="w-5 h-5" />
-          <span>Market Overview</span>
-        </CardTitle>
-        <CardDescription>Real-time market sentiment and key metrics</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Market Sentiment</p>
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${sentiment === "Bullish" ? "bg-bullish" : sentiment === "Bearish" ? "bg-bearish" : "bg-yellow-500"}`}></div>
-              <span className="font-medium">{sentiment}</span>
-            </div>
-            <Progress value={bullishPercentage} className="h-2" />
-            <p className="text-xs text-muted-foreground">{bullishPercentage.toFixed(0)}% Bullish signals</p>
-          </div>
+    <div className="space-y-6">
+      {/* Main Market Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Activity className="w-5 h-5" />
+            <span>Market Overview</span>
+          </CardTitle>
+          <CardDescription>Real-time market sentiment and comprehensive index analysis</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {/* Overall Market Sentiment */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Overall Sentiment</p>
+                  <Badge variant={sentiment.status === "Strong Bullish" || sentiment.status === "Bullish" ? "default" :
+                               sentiment.status === "Strong Bearish" || sentiment.status === "Bearish" ? "destructive" : "secondary"}
+                         className="text-xs">
+                    {sentiment.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${sentiment.color}`}></div>
+                  <span className="font-medium">{bullishPercentage.toFixed(0)}% Bullish</span>
+                </div>
+                <Progress value={bullishPercentage} className="h-2" />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="flex justify-between">
+                    <span>Advances: {breadth.advances}</span>
+                    <span className="text-green-600">↑</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Declines: {breadth.declines}</span>
+                    <span className="text-red-600">↓</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Unchanged: {breadth.unchanged}</span>
+                    <span className="text-gray-600">→</span>
+                  </div>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">NIFTY Range</p>
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold">{niftyData ? formatNumber(niftyData.high - niftyData.low, 0) : "N/A"}</span>
-              <Badge variant="secondary">Points</Badge>
-            </div>
-            <Progress value={niftyData ? Math.min(((niftyData.high - niftyData.low) / niftyData.last_trade_price) * 100 * 10, 100) : 0} className="h-2" />
-            <p className="text-xs text-muted-foreground">
-              H: {niftyData ? formatNumber(niftyData.high, 0) : "N/A"} | L: {niftyData ? formatNumber(niftyData.low, 0) : "N/A"}
-            </p>
-          </div>
+              {/* Volatility Analysis */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Market Volatility</p>
+                {volatility ? (
+                  <>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg font-bold">{formatNumber(volatility.range, 0)}</span>
+                      <Badge variant="secondary" className="text-xs">{volatility.level}</Badge>
+                    </div>
+                    <Progress value={volatility.score} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {volatility.percentage.toFixed(2)}% daily range
+                    </p>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>High: {formatNumber(niftyData?.high || 0, 0)}</div>
+                      <div>Low: {formatNumber(niftyData?.low || 0, 0)}</div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Data unavailable</p>
+                )}
+              </div>
 
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Major Indices</p>
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold text-bullish">{bullishCount}</span>
-              <span className="text-sm text-muted-foreground">Up</span>
-              <span className="text-lg font-bold text-bearish">{totalCount - bullishCount}</span>
-              <span className="text-sm text-muted-foreground">Down</span>
+              {/* 52-Week Analysis */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">52-Week Position</p>
+                {week52 ? (
+                  <>
+                    <div className="text-lg font-bold">{week52.position}</div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex justify-between">
+                        <span>From High:</span>
+                        <span className={week52.distanceFromHigh < 5 ? "text-red-600" : "text-muted-foreground"}>
+                          {week52.distanceFromHigh.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>From Low:</span>
+                        <span className={week52.distanceFromLow < 5 ? "text-green-600" : "text-muted-foreground"}>
+                          {week52.distanceFromLow.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      NIFTY 52W Range: {formatNumber(niftyData?.low52 || 0, 0)} - {formatNumber(niftyData?.high52 || 0, 0)}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Data unavailable</p>
+                )}
+              </div>
+
+              {/* Market Breadth */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Market Breadth</p>
+                <div className="text-lg font-bold">{breadth.status}</div>
+                <Progress value={breadth.score} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  A/D Ratio: {breadth.ratio}
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  Total Indices: {totalIndices}
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">Out of {totalCount} major indices</p>
+
+            {/* Major Indices Performance */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Major Indices Performance</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* NIFTY 50 */}
+                {categorizedIndices.largeCap.map((index, idx) => (
+                  <div key={`largecap-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">NIFTY 50</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* NIFTY BANK */}
+                {categorizedIndices.bankNifty.map((index, idx) => (
+                  <div key={`banknifty-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">NIFTY BANK</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* NIFTY FIN SERVICE */}
+                {categorizedIndices.finService.map((index, idx) => (
+                  <div key={`finservice-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">NIFTY FIN SERVICE</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* NIFTY MID SELECT */}
+                {categorizedIndices.midCap.map((index, idx) => (
+                  <div key={`midcap-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">NIFTY MID SELECT</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* SENSEX */}
+                {categorizedIndices.sensex.map((index, idx) => (
+                  <div key={`sensex-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">SENSEX</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* GIFT NIFTY */}
+                {categorizedIndices.giftNifty.map((index, idx) => (
+                  <div key={`giftnifty-${idx}`} className="p-4 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium">GIFT NIFTY</h5>
+                      <Badge variant={index.change_per > 0 ? "default" : index.change_per < 0 ? "destructive" : "secondary"}
+                             className="text-xs">
+                        {index.change_per > 0 ? "↑" : index.change_per < 0 ? "↓" : "→"} {Math.abs(index.change_per).toFixed(2)}%
+                      </Badge>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Current:</span>
+                        <span className="font-bold">{formatNumber(index.last_trade_price, 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Change:</span>
+                        <span className={`font-medium ${index.change_value > 0 ? 'text-green-600' : index.change_value < 0 ? 'text-red-600' : 'text-gray-600'}`}>
+                          {index.change_value > 0 ? '+' : ''}{formatNumber(index.change_value, 2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Range:</span>
+                        <span className="text-xs">{formatNumber(index.low, 0)} - {formatNumber(index.high, 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Market Summary Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border/50">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{breadth.advances}</p>
+                <p className="text-xs text-muted-foreground">Advancing</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-red-600">{breadth.declines}</p>
+                <p className="text-xs text-muted-foreground">Declining</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-600">{breadth.unchanged}</p>
+                <p className="text-xs text-muted-foreground">Unchanged</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">{totalIndices}</p>
+                <p className="text-xs text-muted-foreground">Total Indices</p>
+              </div>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -251,6 +668,7 @@ export default function Dashboard({ marketData }: { marketData: any }) {
   const [error, setError] = useState<string | null>(null)
   const [niftyChartRange, setNiftyChartRange] = useState([0, 100]) // Start and end percentage of data to show for NIFTY
   const [bankNiftyChartRange, setBankNiftyChartRange] = useState([0, 100]) // Start and end percentage of data to show for BANKNIFTY
+  const [additionalIndices, setAdditionalIndices] = useState<any[]>([])
 
   // Process max pain intraday data for charts
   const processIntradayData = useMemo(() => {
@@ -293,11 +711,35 @@ export default function Dashboard({ marketData }: { marketData: any }) {
     }
   }, [])
 
+  // Fetch additional stock index data for comprehensive market overview
+  const fetchStockIndexData = async () => {
+    try {
+      const response = await fetch('/api/stock-index-data')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.resultData && Array.isArray(data.resultData)) {
+          // Filter out NIFTY 50 and NIFTY BANK as they're already in marketData
+          const additional = data.resultData.filter(
+            (index: any) =>
+              index.symbol_name !== 'NIFTY 50' &&
+              index.symbol_name !== 'NIFTY BANK'
+          )
+          setAdditionalIndices(additional)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching stock index data:', err)
+    }
+  }
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true)
         setError(null)
+
+        // Fetch additional stock index data for market overview
+        await fetchStockIndexData()
 
         // Fetch data for both NIFTY and BANKNIFTY separately
         const [niftyRawData, bankNiftyRawData] = await Promise.all([
@@ -374,7 +816,7 @@ export default function Dashboard({ marketData }: { marketData: any }) {
   return (
     <div className="space-y-6">
       {/* Market Overview */}
-      <MarketOverview marketData={marketData} />
+      <MarketOverview marketData={marketData} additionalIndices={additionalIndices} />
 
       {/* Index Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

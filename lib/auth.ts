@@ -21,17 +21,7 @@ export const authUtils = {
   // Validate access code
   validateAccessCode: (code: string): boolean => {
     const trimmedCode = code.trim().toLowerCase()
-    const isValid = VALID_ACCESS_CODES.includes(trimmedCode)
-
-    // Debug logging (remove in production)
-    console.log('Validating code:', {
-      original: code,
-      trimmed: trimmedCode,
-      validCodes: VALID_ACCESS_CODES,
-      isValid: isValid
-    })
-
-    return isValid
+    return VALID_ACCESS_CODES.includes(trimmedCode)
   },
 
   // Set authentication cookie (2 hours expiry)
