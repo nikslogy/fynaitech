@@ -7,50 +7,124 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { fetchOITimeRangeData, getSymbolForAPI, OITimeRangeData, formatNumber, generateStrikePrices } from "@/lib/api"
 
 interface OIAnalyticsProps {
   instrument: string
   expiry: string
   timeframe: string
   strikeRange: string
+  strikeMode?: string
 }
 
-export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange }: OIAnalyticsProps) {
+export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange, strikeMode }: OIAnalyticsProps) {
   const [selectedFilter, setSelectedFilter] = useState("all")
   const [timeRangeFilter, setTimeRangeFilter] = useState("full-session")
   const [customStartTime, setCustomStartTime] = useState("09:15")
   const [customEndTime, setCustomEndTime] = useState("15:30")
+  const [oiData, setOiData] = useState<OITimeRangeData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const strikeWiseData = [
-    { strike: 24800, callOI: 306, putOI: 127, totalOI: 433, maxPain: false },
-    { strike: 24850, callOI: 256, putOI: 66, totalOI: 322, maxPain: false },
-    { strike: 24900, callOI: 208, putOI: 114, totalOI: 322, maxPain: false },
-    { strike: 24950, callOI: 163, putOI: 81, totalOI: 244, maxPain: false },
-    { strike: 25000, callOI: 117, putOI: 204, totalOI: 321, maxPain: false },
-    { strike: 25050, callOI: 77, putOI: 109, totalOI: 186, maxPain: true },
-    { strike: 25100, callOI: 45, putOI: 168, totalOI: 213, maxPain: false },
-    { strike: 25150, callOI: 25, putOI: 33, totalOI: 58, maxPain: false },
-    { strike: 25200, callOI: 14, putOI: 25, totalOI: 39, maxPain: false },
-  ]
+  // Process OI data for display
+  const processOIData = (rawData: OITimeRangeData[]) => {
+    // Group by strike price and get latest data
+    const strikeMap = new Map<number, OITimeRangeData>()
+    rawData.forEach(item => {
+      if (!strikeMap.has(item.strike_price) || new Date(item.time) > new Date(strikeMap.get(item.strike_price)!.time)) {
+        strikeMap.set(item.strike_price, item)
+      }
+    })
+
+    return Array.from(strikeMap.values()).map(item => ({
+      strike: item.strike_price,
+      callOI: Math.round(item.calls_oi / 1000), // Convert to thousands
+      putOI: Math.round(item.puts_oi / 1000),
+      totalOI: Math.round((item.calls_oi + item.puts_oi) / 1000),
+      maxPain: false // Will be calculated based on max pain API
+    })).sort((a, b) => a.strike - b.strike)
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const symbolForAPI = getSymbolForAPI(instrument)
+        
+        const startTime = timeRangeFilter === "custom" ? `${customStartTime}:00` : "09:10:00"
+        const endTime = timeRangeFilter === "custom" ? `${customEndTime}:00` : "15:30:00"
+        
+        console.log('Fetching OI time range data with params:', {
+          symbol: symbolForAPI,
+          startTime,
+          endTime,
+          expiry: ''
+        })
+        
+        const rawData = await fetchOITimeRangeData(
+          symbolForAPI,
+          startTime,
+          endTime,
+          '' // Empty expiry parameter as shown in API response
+        )
+        
+        console.log('Received OI time range data:', rawData.length, 'items')
+        setOiData(rawData)
+      } catch (err) {
+        console.error('Error fetching OI data:', err)
+        setError('Failed to load OI data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [instrument, expiry, timeframe, strikeRange, strikeMode, timeRangeFilter, customStartTime, customEndTime])
+
+  const strikeWiseData = processOIData(oiData)
 
   const callsPutsData = [
     { name: "Calls OI", value: strikeWiseData.reduce((sum, item) => sum + item.callOI, 0), fill: "#ef4444" },
     { name: "Puts OI", value: strikeWiseData.reduce((sum, item) => sum + item.putOI, 0), fill: "#22c55e" },
   ]
 
-  const oiBuildUpData = [
-    { strike: 24800, type: "Long Build-up", callChg: 15000, putChg: 8000, signal: "Bullish" },
-    { strike: 24900, type: "Short Covering", callChg: -12000, putChg: -5000, signal: "Bullish" },
-    { strike: 25000, type: "Long Unwinding", callChg: -8000, putChg: 12000, signal: "Bearish" },
-    { strike: 25100, type: "Short Build-up", callChg: 18000, putChg: -3000, signal: "Bearish" },
-    { strike: 25200, type: "Long Build-up", callChg: 22000, putChg: 15000, signal: "Neutral" },
-  ]
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex items-center justify-center">
+              <div className="animate-pulse text-muted-foreground">Loading OI Analytics data...</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
-  const filteredData =
-    selectedFilter === "all"
-      ? oiBuildUpData
-      : oiBuildUpData.filter((item) => item.signal.toLowerCase() === selectedFilter)
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="p-8">
+            <div className="flex items-center justify-center text-red-500">
+              {error}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const filteredData = strikeWiseData.filter((item) => {
+    if (selectedFilter === "all") return true
+    // Add filtering logic based on OI values
+    if (selectedFilter === "high-oi") return item.totalOI > 100
+    if (selectedFilter === "low-oi") return item.totalOI <= 100
+    return true
+  })
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -207,47 +281,31 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-center min-w-[80px]">Strike</TableHead>
-                    <TableHead className="text-center min-w-[120px]">Type</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Call Change</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Put Change</TableHead>
-                    <TableHead className="text-center min-w-[80px]">Signal</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Call OI (K)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Put OI (K)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Total OI (K)</TableHead>
+                    <TableHead className="text-center min-w-[80px]">Max Pain</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-medium text-center">{row.strike}</TableCell>
-                      <TableCell className="text-center text-sm">{row.type}</TableCell>
-                      <TableCell
-                        className={`text-center font-medium text-sm ${row.callChg > 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {row.callChg > 0 ? "+" : ""}
-                        {row.callChg.toLocaleString()}
+                      <TableCell className="font-medium text-center">{formatNumber(row.strike, 0)}</TableCell>
+                      <TableCell className="text-center font-medium text-red-600">
+                        {formatNumber(row.callOI, 0)}
                       </TableCell>
-                      <TableCell
-                        className={`text-center font-medium text-sm ${row.putChg > 0 ? "text-green-600" : "text-red-600"}`}
-                      >
-                        {row.putChg > 0 ? "+" : ""}
-                        {row.putChg.toLocaleString()}
+                      <TableCell className="text-center font-medium text-green-600">
+                        {formatNumber(row.putOI, 0)}
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {formatNumber(row.totalOI, 0)}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
-                          variant={
-                            row.signal === "Bullish"
-                              ? "default"
-                              : row.signal === "Bearish"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                          className={`text-xs ${
-                            row.signal === "Bullish"
-                              ? "bg-green-100 text-green-800"
-                              : row.signal === "Bearish"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-yellow-100 text-yellow-800"
-                          }`}
+                          variant={row.maxPain ? "default" : "outline"}
+                          className={row.maxPain ? "bg-yellow-100 text-yellow-800" : ""}
                         >
-                          {row.signal}
+                          {row.maxPain ? "Yes" : "No"}
                         </Badge>
                       </TableCell>
                     </TableRow>
