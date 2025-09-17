@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Activity, BarChart3, TrendingUp, Users, Target, Settings2, Menu } from "lucide-react"
+import { Activity, BarChart3, TrendingUp, Users, Target, Settings2, Menu, LogOut } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import OptionChain from "@/components/option-chain"
 import PCRIntraday from "@/components/pcr-intraday"
@@ -18,7 +18,9 @@ import FIIDIIFlows from "@/components/fii-dii-flows"
 import MaxPainSummary from "@/components/max-pain-summary"
 import OptionDataIndicator from "@/components/option-data-indicator"
 import Dashboard from "@/components/dashboard"
+import AuthPage from "@/components/auth-page"
 import { fetchStockIndexData, fetchPCRData, fetchTodaySpotData, getSymbolForAPI, formatNumber, generateStrikePrices } from "@/lib/api"
+import { authUtils } from "@/lib/auth"
 
 // Custom Strike Selector Component with suggestions
 function StrikeSelector({ value, onChange, currentPrice }: {
@@ -181,6 +183,10 @@ export default function FynAIPage() {
   const [marketData, setMarketData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+
   // Fetch data function (extracted from useEffect for reuse)
   const fetchMarketData = async () => {
     try {
@@ -288,18 +294,48 @@ export default function FynAIPage() {
     return expiryDates
   }
 
-  // Fetch live market data and expiry options
+  // Check authentication on component mount
   useEffect(() => {
+    const checkAuth = () => {
+      const authenticated = authUtils.isAuthenticated()
+      setIsAuthenticated(authenticated)
+      setAuthChecked(true)
+    }
+    checkAuth()
+  }, [])
+
+  // Authentication handler
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true)
+    // Fetch market data after authentication
     fetchMarketData()
-    // Configurable auto-refresh
-    let interval: NodeJS.Timeout | null = null
-    if (refreshEnabled && refreshInterval > 0) {
-      interval = setInterval(fetchMarketData, refreshInterval * 1000)
+  }
+
+  // Logout handler
+  const handleLogout = () => {
+    authUtils.logout()
+    setIsAuthenticated(false)
+    setAuthChecked(false)
+    // Reset to initial state
+    setTimeout(() => {
+      setAuthChecked(true)
+    }, 100)
+  }
+
+  // Fetch live market data and expiry options (only when authenticated)
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchMarketData()
+      // Configurable auto-refresh
+      let interval: NodeJS.Timeout | null = null
+      if (refreshEnabled && refreshInterval > 0) {
+        interval = setInterval(fetchMarketData, refreshInterval * 1000)
+      }
+      return () => {
+        if (interval) clearInterval(interval)
+      }
     }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [selectedInstrument, selectedExpiry, refreshEnabled, refreshInterval])
+  }, [selectedInstrument, selectedExpiry, refreshEnabled, refreshInterval, isAuthenticated])
 
 
 
@@ -582,6 +618,25 @@ export default function FynAIPage() {
     </Sheet>
   )
 
+  // Show loading while checking authentication
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto">
+            <Activity className="w-8 h-8 text-primary-foreground animate-pulse" />
+          </div>
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show auth page if not authenticated
+  if (!isAuthenticated) {
+    return <AuthPage onAuthenticated={handleAuthenticated} />
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -859,6 +914,16 @@ export default function FynAIPage() {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="bg-transparent text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
             </div>
 
             <div className="flex items-center space-x-2 md:hidden">
@@ -866,6 +931,14 @@ export default function FynAIPage() {
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
                 Live
               </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="bg-transparent text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
               <MobileControls />
             </div>
           </div>
