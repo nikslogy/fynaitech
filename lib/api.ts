@@ -63,6 +63,29 @@ export interface MaxPainIntradayResponse {
   resultData: MaxPainIntradayData[];
 }
 
+export interface TodaySpotData {
+  symbol_name: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  last_trade_price: number;
+  created_at: string;
+  volume: number;
+  high52: number;
+  low52: number;
+  change_value: number;
+  change_per: number;
+  max_pain: number;
+  lot_size: number;
+}
+
+export interface TodaySpotResponse {
+  result: number;
+  resultMessage: string;
+  resultData: TodaySpotData;
+}
+
 export interface TrendingOIData {
   sr_no: number;
   time: string;
@@ -136,7 +159,7 @@ export async function fetchStockIndexData(): Promise<MarketIndex[]> {
 }
 
 // Fetch today's spot data for a specific symbol
-export async function fetchTodaySpotData(symbol: string, createdAt?: string): Promise<MarketIndex | null> {
+export async function fetchTodaySpotData(symbol: string = 'nifty', createdAt?: string): Promise<TodaySpotData | null> {
   try {
     const params = new URLSearchParams({
       symbol: symbol.toLowerCase(),
@@ -155,7 +178,7 @@ export async function fetchTodaySpotData(symbol: string, createdAt?: string): Pr
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data: SpotDataResponse = await response.json();
+    const data: TodaySpotResponse = await response.json();
     
     if (data.result !== 1) {
       throw new Error(data.resultMessage || 'Failed to fetch spot data');
@@ -790,4 +813,92 @@ export function getActivitySentiment(fiiNet: number, diiNet: number): {
   if (combined < -1000) return { sentiment: 'Bearish', color: 'bearish' };
 
   return { sentiment: 'Neutral', color: 'neutral' };
+}
+
+// Processed chart data for visualization
+export interface ProcessedMaxPainData {
+  time: string;
+  maxPain: number;
+  spotPrice: number;
+  timestamp: string;
+}
+
+// Process max pain intraday data for chart visualization
+export function processMaxPainData(rawData: MaxPainIntradayData): ProcessedMaxPainData[] {
+  if (!rawData) return [];
+
+  const spotPrices = rawData.spot_price.split(',');
+  const maxPainLevels = rawData.max_pain_level.split(',');
+  const timestamps = rawData.created_at.split(',');
+
+  const minLength = Math.min(spotPrices.length, maxPainLevels.length, timestamps.length);
+
+  const processedData: ProcessedMaxPainData[] = [];
+
+  for (let i = 0; i < minLength; i++) {
+    const spotPrice = parseFloat(spotPrices[i]);
+    const maxPain = parseFloat(maxPainLevels[i]);
+    const timestamp = timestamps[i];
+
+    if (!isNaN(spotPrice) && !isNaN(maxPain) && timestamp) {
+      // Extract time from timestamp (HH:MM format)
+      const timeMatch = timestamp.match(/(\d{2}:\d{2}):\d{2}$/);
+      const time = timeMatch ? timeMatch[1] : timestamp;
+
+      processedData.push({
+        time,
+        maxPain,
+        spotPrice,
+        timestamp
+      });
+    }
+  }
+
+  return processedData;
+}
+
+// Calculate max pain insights
+export function calculateMaxPainInsights(processedData: ProcessedMaxPainData[], currentSpot: number) {
+  if (processedData.length === 0) return null;
+
+  const latestData = processedData[processedData.length - 1];
+  const currentMaxPain = latestData.maxPain;
+  const distanceFromSpot = currentMaxPain - currentSpot;
+
+  // Find highest OI concentration (most frequent max pain level)
+  const maxPainCounts = processedData.reduce((acc, item) => {
+    acc[item.maxPain] = (acc[item.maxPain] || 0) + 1;
+    return acc;
+  }, {} as Record<number, number>);
+
+  const highestOIStrike = Object.keys(maxPainCounts).reduce((a, b) =>
+    maxPainCounts[Number(a)] > maxPainCounts[Number(b)] ? a : b
+  );
+
+  // Calculate volatility (standard deviation of spot prices)
+  const spotPrices = processedData.map(d => d.spotPrice);
+  const mean = spotPrices.reduce((sum, price) => sum + price, 0) / spotPrices.length;
+  const variance = spotPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / spotPrices.length;
+  const volatility = Math.sqrt(variance);
+
+  // Determine bias based on max pain vs spot
+  let bias: 'Bullish' | 'Bearish' | 'Neutral' = 'Neutral';
+  if (distanceFromSpot < -50) bias = 'Bullish';
+  else if (distanceFromSpot > 50) bias = 'Bearish';
+
+  return {
+    currentMaxPain,
+    distanceFromSpot,
+    highestOIStrike: Number(highestOIStrike),
+    volatility: Math.round(volatility * 100) / 100,
+    bias,
+    totalDataPoints: processedData.length
+  };
+}
+
+// Format max pain value for display
+export function formatMaxPainValue(value: number): string {
+  return value.toLocaleString('en-IN', {
+    maximumFractionDigits: 0
+  });
 }

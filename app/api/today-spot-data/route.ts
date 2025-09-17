@@ -4,57 +4,46 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const symbol = searchParams.get('symbol') || 'nifty'
-    const created_at = searchParams.get('created_at') || ''
+    const createdAt = searchParams.get('created_at') || ''
 
-    const params = new URLSearchParams({
-      symbol: symbol.toLowerCase(),
-      ...(created_at && { created_at })
-    })
+    // Make actual API call to external service
+    const externalApiUrl = `https://webapi.niftytrader.in/webapi/symbol/today-spot-data?symbol=${symbol}&created_at=${createdAt}`
 
-    const response = await fetch(`https://webapi.niftytrader.in/webapi/symbol/today-spot-data?${params}`, {
+    console.log('Making real API call to:', externalApiUrl)
+
+    const response = await fetch(externalApiUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
+      // Don't cache this request
+      cache: 'no-store'
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      console.error('External API call failed:', response.status, response.statusText)
+      throw new Error(`External API call failed: ${response.status}`)
     }
 
     const data = await response.json()
-    
+    console.log('Received real data from external API:', data.resultMessage)
+
+    // Return the real data from external API
     return NextResponse.json(data, {
       headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Cache-Control': 'no-store',
       },
     })
   } catch (error) {
-    console.error('Error fetching today spot data:', error)
+    console.error('Error in today spot data API route:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch today spot data' },
-      { 
-        status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-      }
+      {
+        result: 0,
+        resultMessage: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        resultData: null
+      },
+      { status: 500 }
     )
   }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  })
 }
