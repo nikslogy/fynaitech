@@ -21,7 +21,6 @@ interface OIAnalyticsProps {
 }
 
 export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange, strikeMode }: OIAnalyticsProps) {
-  const [selectedFilter, setSelectedFilter] = useState("all")
   const [timeRangeFilter, setTimeRangeFilter] = useState("full-session")
   const [customStartTime, setCustomStartTime] = useState("09:15")
   const [customEndTime, setCustomEndTime] = useState("15:30")
@@ -32,6 +31,7 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
   const [chartRange, setChartRange] = useState([0, 100]) // Start and end percentage of data to show
   const [strikeChartRange, setStrikeChartRange] = useState([0, 100]) // Range for strike-wise chart
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie') // Toggle between pie and bar chart
+  const [tableFilter, setTableFilter] = useState("all") // Filter for OI Build-up Analysis table
 
   // Process OI change data for display
   const processOIData = (rawData: OITimeRangeData[]) => {
@@ -212,13 +212,15 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
     )
   }
 
-  const filteredData = strikeWiseData.filter((item) => {
-    if (selectedFilter === "all") return true
-    // Add filtering logic based on absolute change OI values for magnitude comparison
-    if (selectedFilter === "high-oi") return Math.abs(item.totalChangeOI) > 10000
-    if (selectedFilter === "low-oi") return Math.abs(item.totalChangeOI) <= 10000
-    if (selectedFilter === "calls-dominant") return Math.abs(item.callChangeOI) > Math.abs(item.putChangeOI)
-    if (selectedFilter === "puts-dominant") return Math.abs(item.putChangeOI) > Math.abs(item.callChangeOI)
+  // No filtering applied - show all data
+  const filteredData = strikeWiseData
+
+  // Filter table data based on table filter
+  const filteredTableData = strikeWiseData.filter((item) => {
+    if (tableFilter === "all") return true
+    if (tableFilter === "high-change") return Math.abs(item.totalChangeOI) > 50000
+    if (tableFilter === "positive") return item.callChangeOI > 0 || item.putChangeOI > 0
+    if (tableFilter === "negative") return item.callChangeOI < 0 || item.putChangeOI < 0
     return true
   })
 
@@ -231,9 +233,9 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
               OI Analytics - {instrument} ({timeframe}min)
             </CardTitle>
 
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex gap-3">
               <Select value={timeRangeFilter} onValueChange={setTimeRangeFilter}>
-                <SelectTrigger className="w-full sm:w-48">
+                <SelectTrigger className="w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,19 +245,6 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
                   <SelectItem value="opening">9:15 - 10:00</SelectItem>
                   <SelectItem value="closing">14:30 - 15:30</SelectItem>
                   <SelectItem value="custom">Custom Range</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-                <SelectTrigger className="w-full sm:w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Strikes</SelectItem>
-                  <SelectItem value="high-oi">High Change OI</SelectItem>
-                  <SelectItem value="low-oi">Low Change OI</SelectItem>
-                  <SelectItem value="calls-dominant">Calls Dominant</SelectItem>
-                  <SelectItem value="puts-dominant">Puts Dominant</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -297,7 +286,7 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
           )}
 
           <div className="text-sm text-muted-foreground mt-2 break-words">
-            <div className="mb-1">
+            <div>
               <strong>Time Range:</strong>{" "}
               {(() => {
                 let startTime = "09:10:00"
@@ -322,9 +311,6 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
 
                 return `${startTime} - ${endTime}`
               })()}
-            </div>
-            <div>
-              <strong>Strike Range:</strong> {strikeRange}
             </div>
           </div>
         </CardHeader>
@@ -415,10 +401,10 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">
-                  Strike Range: {strikeChartRange[0]}% - {strikeChartRange[1]}%
+                  Showing {filteredStrikeWiseData.length} strikes
                 </Label>
                 <span className="text-xs text-muted-foreground">
-                  {filteredStrikeWiseData.length} strikes shown
+                  Range: {strikeChartRange[0]}% - {strikeChartRange[1]}%
                 </span>
               </div>
               <Slider
@@ -513,6 +499,7 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
                     <YAxis
                       yAxisId="right"
                       orientation="right"
+                      domain={['dataMin - 10', 'dataMax + 10']}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
@@ -556,7 +543,25 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">OI Build-up Analysis</CardTitle>
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base sm:text-lg">OI Build-up Analysis</CardTitle>
+              <Select value={tableFilter} onValueChange={setTableFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Strikes</SelectItem>
+                  <SelectItem value="high-change">High Change OI</SelectItem>
+                  <SelectItem value="positive">Positive Only</SelectItem>
+                  <SelectItem value="negative">Negative Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredTableData.length} strikes • Values in Lakhs (L)
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -565,44 +570,52 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-center min-w-[80px]">Strike</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Call Change OI</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Put Change OI</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Total Change OI</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Call OI Value (K)</TableHead>
-                    <TableHead className="text-center min-w-[100px]">Put OI Value (K)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Call Change OI (L)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Put Change OI (L)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Total Change OI (L)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Call OI Value (L)</TableHead>
+                    <TableHead className="text-center min-w-[100px]">Put OI Value (L)</TableHead>
                     <TableHead className="text-center min-w-[80px]">Index Close</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium text-center">{formatNumber(row.strike, 0)}</TableCell>
-                      <TableCell className={`text-center font-medium ${
-                        row.callChangeOI > 0 ? "text-green-600" : row.callChangeOI < 0 ? "text-red-600" : "text-gray-600"
-                      }`}>
-                        {row.callChangeOI > 0 ? "+" : ""}{formatNumber(row.callChangeOI, 0)}
-                      </TableCell>
-                      <TableCell className={`text-center font-medium ${
-                        row.putChangeOI > 0 ? "text-green-600" : row.putChangeOI < 0 ? "text-red-600" : "text-gray-600"
-                      }`}>
-                        {row.putChangeOI > 0 ? "+" : ""}{formatNumber(row.putChangeOI, 0)}
-                      </TableCell>
-                      <TableCell className={`text-center font-medium ${
-                        row.totalChangeOI > 0 ? "text-green-600" : row.totalChangeOI < 0 ? "text-red-600" : "text-gray-600"
-                      }`}>
-                        {row.totalChangeOI > 0 ? "+" : ""}{formatNumber(row.totalChangeOI, 0)}
-                      </TableCell>
-                      <TableCell className="text-center font-medium text-blue-600">
-                        {formatNumber(row.callOIValue, 0)}
-                      </TableCell>
-                      <TableCell className="text-center font-medium text-purple-600">
-                        {formatNumber(row.putOIValue, 0)}
-                      </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {formatNumber(row.indexClose, 2)}
+                  {filteredTableData.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        No data available for the selected filter
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredTableData.map((row, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium text-center">{formatNumber(row.strike, 0)}</TableCell>
+                        <TableCell className={`text-center font-medium ${
+                          row.callChangeOI > 0 ? "text-green-600" : row.callChangeOI < 0 ? "text-red-600" : "text-gray-600"
+                        }`}>
+                          {row.callChangeOI > 0 ? "+" : ""}{formatNumber(row.callChangeOI / 100000, 2)}L
+                        </TableCell>
+                        <TableCell className={`text-center font-medium ${
+                          row.putChangeOI > 0 ? "text-green-600" : row.putChangeOI < 0 ? "text-red-600" : "text-gray-600"
+                        }`}>
+                          {row.putChangeOI > 0 ? "+" : ""}{formatNumber(row.putChangeOI / 100000, 2)}L
+                        </TableCell>
+                        <TableCell className={`text-center font-medium ${
+                          row.totalChangeOI > 0 ? "text-green-600" : row.totalChangeOI < 0 ? "text-red-600" : "text-gray-600"
+                        }`}>
+                          {row.totalChangeOI > 0 ? "+" : ""}{formatNumber(row.totalChangeOI / 100000, 2)}L
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-blue-600">
+                          {formatNumber(row.callOIValue, 2)}L
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-purple-600">
+                          {formatNumber(row.putOIValue, 2)}L
+                        </TableCell>
+                        <TableCell className="text-center font-medium">
+                          {formatNumber(row.indexClose, 2)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
