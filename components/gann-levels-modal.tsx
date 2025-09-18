@@ -141,18 +141,18 @@ export default function GannLevelsModal({ open, onOpenChange }: GannLevelsModalP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="w-full h-full max-w-none max-h-none p-0 sm:p-6 sm:max-w-4xl sm:max-h-[90vh] sm:h-auto overflow-hidden [&>button]:top-3 [&>button]:right-3 sm:[&>button]:top-4 sm:[&>button]:right-4">
+        <DialogHeader className="px-4 py-4 sm:px-0 sm:py-0 sm:pb-4">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Calculator className="w-5 h-5" />
             Gann Levels Calculator
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm sm:text-base">
             Calculate Gann support and resistance levels based on a base price
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 overflow-y-auto max-h-[calc(95vh-120px)]">
+        <div className="px-4 sm:px-0 space-y-6 overflow-y-auto max-h-[calc(100vh-140px)] sm:max-h-[calc(90vh-120px)]">
           {/* Input Section */}
           <Card>
             <CardHeader>
@@ -420,6 +420,32 @@ export default function GannLevelsModal({ open, onOpenChange }: GannLevelsModalP
             </div>
           )}
 
+          {/* Run Strategy Button */}
+          {gannLevels && (
+            <div className="flex justify-center pt-4 px-4 pb-4">
+              <Button
+                onClick={() => {
+                  // Store data in localStorage for the new page
+                  const strategyData = {
+                    basePrice: basePrice,
+                    gannLevels: gannLevels,
+                    currentNiftyPrice: currentNiftyPrice,
+                    timestamp: new Date().toISOString()
+                  };
+                  localStorage.setItem('gannStrategyData', JSON.stringify(strategyData));
+
+                  // Open new page
+                  window.open('/gann-strategy-live', '_blank');
+                }}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 w-full sm:w-auto sm:px-8"
+                size="lg"
+              >
+                <Calculator className="w-5 h-5 mr-2" />
+                <span className="text-sm sm:text-base">Run Gann Level Strategy Live</span>
+              </Button>
+            </div>
+          )}
+
           {/* Instructions */}
           {!gannLevels && (
             <Card>
@@ -436,7 +462,7 @@ export default function GannLevelsModal({ open, onOpenChange }: GannLevelsModalP
               </CardContent>
             </Card>
           )}
-        </div>
+          </div>
       </DialogContent>
     </Dialog>
   )
