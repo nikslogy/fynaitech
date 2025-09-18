@@ -445,7 +445,7 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
                       {row.diff > 0 ? "+" : ""}
                       {formatNumber(row.diff, 0)}
                     </TableCell>
-                    <TableCell className="font-medium text-center">{formatNumber(row.pcr, 4)}</TableCell>
+                    <TableCell className="font-medium text-center">{formatNumber(row.pcr, 2)}</TableCell>
                     <TableCell className="text-center">
                       <Badge
                         variant={
