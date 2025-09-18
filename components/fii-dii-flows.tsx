@@ -23,10 +23,15 @@ import {
 export default function FIIDIIFlows() {
   const [dailyData, setDailyData] = useState<FIIDIIDailyData[]>([])
   const [monthlyData, setMonthlyData] = useState<FIIDIIMonthlyData[]>([])
+  const [allMonthlyData, setAllMonthlyData] = useState<FIIDIIMonthlyData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState('daily')
-  const [selectedMonth, setSelectedMonth] = useState('2025-09')
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
     loadData()
@@ -37,15 +42,31 @@ export default function FIIDIIFlows() {
     setError(null)
 
     try {
+      const year = selectedMonth.split('-')[0]
+      const month = selectedMonth.split('-')[1]
+
       if (selectedPeriod === 'daily') {
-        const { dailyData: data, monthlyData: monthly } = await fetchFIIDIIData('daily', selectedMonth)
-        setDailyData(data)
-        setMonthlyData(monthly)
+        // Fetch yearly data and filter by selected month client-side
+        const { dailyData: yearlyData, monthlyData: yearlyMonthly } = await fetchFIIDIIData('yearly', year)
+
+        // Filter daily data by selected month
+        const filteredDailyData = yearlyData.filter(item => {
+          const itemMonth = new Date(item.created_at).toISOString().slice(5, 7) // Extract MM from YYYY-MM-DD
+          return itemMonth === month
+        })
+
+        setDailyData(filteredDailyData)
+        setMonthlyData(yearlyMonthly.filter(m => m.month === selectedMonth)) // Filter monthly data too
+
+        // Store all monthly data for the monthly summary tab
+        setAllMonthlyData(yearlyMonthly)
       } else {
-        const { dailyData: data, monthlyData: monthly } = await fetchFIIDIIData('yearly', selectedMonth.split('-')[0])
+        const { dailyData: data, monthlyData: monthly } = await fetchFIIDIIData('yearly', year)
         setDailyData(data)
+        setAllMonthlyData(monthly) // Store all monthly data
         setMonthlyData(monthly)
       }
+      setLastUpdate(new Date())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
@@ -53,10 +74,28 @@ export default function FIIDIIFlows() {
     }
   }
 
+  // This function is now handled in loadData
+  const loadAllMonthlyData = async () => {
+    // No longer needed as monthly data is loaded in loadData
+  }
+
   const todayData = getTodayData(dailyData)
   const rollingAvg = calculateRollingAverage(dailyData, 5)
   const cumulative = calculateCumulativeTotals(dailyData)
   const sentiment = todayData ? getActivitySentiment(todayData.fii_net_value, todayData.dii_net_value) : { sentiment: 'Neutral', color: 'neutral' as const }
+
+  const isTodayDataAvailable = todayData && (() => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const todayString = today.toISOString().split('T')[0];
+    const yesterdayString = yesterday.toISOString().split('T')[0];
+    const dataDate = new Date(todayData.created_at).toISOString().split('T')[0];
+
+    // Consider data available if it's from today or yesterday (recent data)
+    return dataDate === todayString || dataDate === yesterdayString;
+  })()
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -144,7 +183,21 @@ export default function FIIDIIFlows() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold">FII/DII Activity Dashboard</h1>
-          <p className="text-muted-foreground">Real-time institutional flow analysis for option traders</p>
+          <p className="text-muted-foreground">
+            Real-time institutional flow analysis for option traders
+            {lastUpdate && (
+              <span className="block text-xs mt-1">
+                Last updated: {lastUpdate.toLocaleString('en-IN', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: true
+                })}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -162,12 +215,17 @@ export default function FIIDIIFlows() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="2025-09">Sep 2025</SelectItem>
-                <SelectItem value="2025-08">Aug 2025</SelectItem>
-                <SelectItem value="2025-07">Jul 2025</SelectItem>
-                <SelectItem value="2025-06">Jun 2025</SelectItem>
-                <SelectItem value="2025-05">May 2025</SelectItem>
-                <SelectItem value="2025-04">Apr 2025</SelectItem>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const date = new Date()
+                  date.setMonth(date.getMonth() - i)
+                  const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                  const label = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+                  return (
+                    <SelectItem key={yearMonth} value={yearMonth}>
+                      {label}
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           )}
@@ -188,6 +246,11 @@ export default function FIIDIIFlows() {
             >
               {sentiment.sentiment}
             </Badge>
+            {!isTodayDataAvailable && selectedPeriod === 'daily' && (
+              <Badge variant="outline" className="text-xs text-orange-600 border-orange-600">
+                Using latest available data
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -296,6 +359,11 @@ export default function FIIDIIFlows() {
               <CardTitle>Daily FII/DII Activity</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Real-time institutional flows and market impact analysis
+                {!isTodayDataAvailable && (
+                  <span className="block text-orange-600 mt-1 text-xs">
+                    ⚠️ Today's data not yet available. Showing latest available data.
+                  </span>
+                )}
               </p>
             </CardHeader>
             <CardContent>
@@ -313,7 +381,7 @@ export default function FIIDIIFlows() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailyData.slice(0, 10).map((row, index) => {
+                    {dailyData.map((row, index) => {
                       const combined = row.fii_net_value + row.dii_net_value
                       const activityType = getActivitySentiment(row.fii_net_value, row.dii_net_value)
 
@@ -380,7 +448,7 @@ export default function FIIDIIFlows() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {monthlyData.map((row, index) => {
+                    {(allMonthlyData.length > 0 ? allMonthlyData : monthlyData).map((row, index) => {
                       const combined = row.fii_net_value + row.dii_net_value
                       const totalVolume = (row.fii_buy_value || 0) + (row.fii_sell_value || 0) + (row.dii_buy_value || 0) + (row.dii_sell_value || 0)
 

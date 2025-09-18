@@ -818,7 +818,20 @@ export function calculateCumulativeTotals(data: FIIDIIDailyData[]): {
 // Helper function to get today's data
 export function getTodayData(data: FIIDIIDailyData[]): FIIDIIDailyData | null {
   if (data.length === 0) return null;
-  return data[0]; // Assuming data is sorted by date (latest first)
+
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+  // First try to find exact today's date
+  const todayData = data.find(item => {
+    const itemDate = new Date(item.created_at).toISOString().split('T')[0];
+    return itemDate === todayString;
+  });
+
+  if (todayData) return todayData;
+
+  // If today's data not found, return the most recent data
+  return data[0];
 }
 
 // Helper function to format FII/DII values for display
