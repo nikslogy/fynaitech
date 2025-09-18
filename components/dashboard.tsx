@@ -4,11 +4,13 @@ import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { TrendingUp, TrendingDown, Minus, Activity } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { TrendingUp, TrendingDown, Minus, Activity, Zap } from "lucide-react"
 import { Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from "recharts"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData, getTrend, getStrength, formatNumber } from "@/lib/api"
+import GannLevelsModal from "@/components/gann-levels-modal"
 
 const IndexCard = ({
   marketData,
@@ -669,6 +671,7 @@ export default function Dashboard({ marketData }: { marketData: any }) {
   const [niftyChartRange, setNiftyChartRange] = useState([0, 100]) // Start and end percentage of data to show for NIFTY
   const [bankNiftyChartRange, setBankNiftyChartRange] = useState([0, 100]) // Start and end percentage of data to show for BANKNIFTY
   const [additionalIndices, setAdditionalIndices] = useState<any[]>([])
+  const [isGannModalOpen, setIsGannModalOpen] = useState(false)
 
   // Process max pain intraday data for charts
   const processIntradayData = useMemo(() => {
@@ -893,6 +896,35 @@ export default function Dashboard({ marketData }: { marketData: any }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Live Strategy */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="w-5 h-5" />
+            Live Strategy
+          </CardTitle>
+          <CardDescription>
+            Calculate Gann levels for precise entry and exit points
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={() => setIsGannModalOpen(true)}
+            className="w-full h-12 text-lg font-medium"
+            size="lg"
+          >
+            <Zap className="w-5 h-5 mr-2" />
+            Live Strategy
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Gann Levels Modal */}
+      <GannLevelsModal
+        open={isGannModalOpen}
+        onOpenChange={setIsGannModalOpen}
+      />
     </div>
   )
 }
