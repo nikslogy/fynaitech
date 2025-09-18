@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3 } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart } from "recharts"
+import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData } from "@/lib/api"
 
 export default function GannStrategyLivePage() {
@@ -13,6 +15,8 @@ export default function GannStrategyLivePage() {
   const [intradayData, setIntradayData] = useState<MaxPainIntradayData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [chartMode, setChartMode] = useState<'full' | 'zoomed'>('full')
+  const [timeFilter, setTimeFilter] = useState<[number, number]>([0, 100]) // percentage of day
 
   useEffect(() => {
     // Load strategy data from localStorage
@@ -79,6 +83,13 @@ export default function GannStrategyLivePage() {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => a.minutesSinceOpen - b.minutesSinceOpen)
+
+    // Apply time filtering
+    if (chartData.length > 0) {
+      const startIndex = Math.floor((timeFilter[0] / 100) * chartData.length)
+      const endIndex = Math.floor((timeFilter[1] / 100) * chartData.length)
+      return chartData.slice(startIndex, endIndex + 1)
+    }
 
     return chartData
   }
@@ -182,7 +193,13 @@ export default function GannStrategyLivePage() {
                           axisLine={false}
                           tickLine={false}
                           tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                          domain={['dataMin - 100', 'dataMax + 100']}
+                          domain={chartMode === 'zoomed' && strategyData.gannLevels ?
+                            [
+                              Math.min(...strategyData.gannLevels.supports.map((s: any) => s.value), ...strategyData.gannLevels.resistances.map((r: any) => r.value)) - 20,
+                              Math.max(...strategyData.gannLevels.supports.map((s: any) => s.value), ...strategyData.gannLevels.resistances.map((r: any) => r.value)) + 20
+                            ] :
+                            ['dataMin - 100', 'dataMax + 100']
+                          }
                           tickFormatter={(value) => formatNumber(value)}
                         />
                         <Tooltip
@@ -283,6 +300,64 @@ export default function GannStrategyLivePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Chart Controls */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Chart Controls
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* View Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">View Mode:</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={chartMode === 'full' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartMode('full')}
+                      className="h-8"
+                    >
+                      <ZoomOut className="w-3 h-3 mr-1" />
+                      Full View
+                    </Button>
+                    <Button
+                      variant={chartMode === 'zoomed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartMode('zoomed')}
+                      className="h-8"
+                    >
+                      <ZoomIn className="w-3 h-3 mr-1" />
+                      Zoomed
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Time Range Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Time Range:</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {timeFilter[0]}% - {timeFilter[1]}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={timeFilter}
+                    onValueChange={(value) => setTimeFilter(value as [number, number])}
+                    max={100}
+                    min={0}
+                    step={5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>9:15 AM</span>
+                    <span>3:30 PM</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Levels Panel - Takes 1/3 on large screens */}
@@ -359,46 +434,6 @@ export default function GannStrategyLivePage() {
               </CardContent>
             </Card>
 
-            {/* Trading Signals */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Trading Signals</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {strategyData.currentNiftyPrice && (
-                  <>
-                    {strategyData.gannLevels.resistances.some((level: any) =>
-                      Math.abs(level.value - strategyData.currentNiftyPrice) < 50
-                    ) && (
-                      <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm text-red-800 font-medium">⚠️ Near Resistance Level</p>
-                        <p className="text-xs text-red-600">Consider taking profits</p>
-                      </div>
-                    )}
-
-                    {strategyData.gannLevels.supports.some((level: any) =>
-                      Math.abs(level.value - strategyData.currentNiftyPrice) < 50
-                    ) && (
-                      <div className="p-2 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800 font-medium">✅ Near Support Level</p>
-                        <p className="text-xs text-green-600">Potential buying opportunity</p>
-                      </div>
-                    )}
-
-                    {!strategyData.gannLevels.resistances.some((level: any) =>
-                      Math.abs(level.value - strategyData.currentNiftyPrice) < 50
-                    ) && !strategyData.gannLevels.supports.some((level: any) =>
-                      Math.abs(level.value - strategyData.currentNiftyPrice) < 50
-                    ) && (
-                      <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-800 font-medium">📊 Mid-Range Movement</p>
-                        <p className="text-xs text-blue-600">Monitor for breakouts</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
