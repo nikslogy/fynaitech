@@ -323,7 +323,7 @@ export default function GannLevelsModal({ open, onOpenChange }: GannLevelsModalP
                     Chart Controls
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>
                   {/* View Mode Toggle */}
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">View Mode:</Label>
@@ -373,56 +373,50 @@ export default function GannLevelsModal({ open, onOpenChange }: GannLevelsModalP
                 </CardContent>
               </Card>
 
-              {/* Compact Levels Display */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Resistance Levels */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-red-600" />
-                      Resistance Levels
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {gannLevels.resistances.map((level) => (
-                        <div key={level.order} className="flex items-center justify-between p-2 bg-red-50 rounded text-xs min-w-0">
-                          <Badge variant="destructive" className="text-xs h-5 flex-shrink-0">
-                            R{level.order}
-                          </Badge>
-                          <span className="font-medium text-red-700 truncate ml-1">
-                            {formatNumber(level.value)}
-                          </span>
-                        </div>
-                      ))}
+              {/* Gann Levels Display - Desktop Minimal Style */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    Gann Levels Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Resistance Levels */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium text-red-600">Resistance Levels</span>
+                      </div>
+                      <div className="space-y-2">
+                        {gannLevels.resistances.map((level) => (
+                          <div key={level.order} className="flex items-center justify-between py-2 px-3 bg-red-50/50 rounded-lg border border-red-100">
+                            <span className="text-sm font-medium text-red-700">R{level.order}:</span>
+                            <span className="font-mono font-semibold text-red-800">{formatNumber(level.value)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
 
-                {/* Support Levels */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <TrendingDown className="w-4 h-4 text-green-600" />
-                      Support Levels
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {gannLevels.supports.map((level) => (
-                        <div key={level.order} className="flex items-center justify-between p-2 bg-green-50 rounded text-xs min-w-0">
-                          <Badge variant="default" className="text-xs h-5 flex-shrink-0 bg-green-600">
-                            S{level.order}
-                          </Badge>
-                          <span className="font-medium text-green-700 truncate ml-1">
-                            {formatNumber(level.value)}
-                          </span>
-                        </div>
-                      ))}
+                    {/* Support Levels */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingDown className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">Support Levels</span>
+                      </div>
+                      <div className="space-y-2">
+                        {gannLevels.supports.map((level) => (
+                          <div key={level.order} className="flex items-center justify-between py-2 px-3 bg-green-50/50 rounded-lg border border-green-100">
+                            <span className="text-sm font-medium text-green-700">S{level.order}:</span>
+                            <span className="font-mono font-semibold text-green-800">{formatNumber(level.value)}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
