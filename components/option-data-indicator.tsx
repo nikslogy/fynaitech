@@ -13,9 +13,10 @@ interface OptionDataIndicatorProps {
   instrument: string
   expiry: string
   strikeRange?: string
+  refreshKey?: number
 }
 
-export default function OptionDataIndicator({ instrument, expiry, strikeRange }: OptionDataIndicatorProps) {
+export default function OptionDataIndicator({ instrument, expiry, strikeRange, refreshKey }: OptionDataIndicatorProps) {
   const [sortBy, setSortBy] = useState("change_oi")
   const [sortOrder, setSortOrder] = useState("desc")
   const [optionData, setOptionData] = useState<OptionChainData[]>([])
@@ -50,7 +51,7 @@ export default function OptionDataIndicator({ instrument, expiry, strikeRange }:
     }
 
     fetchData()
-  }, [instrument, expiry, strikeRange])
+  }, [instrument, expiry, strikeRange, refreshKey])
 
   // Parse strike range into array of numbers
   const parseStrikeRange = (range: string): number[] => {

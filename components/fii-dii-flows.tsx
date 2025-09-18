@@ -20,7 +20,7 @@ import {
   type FIIDIIMonthlyData
 } from "@/lib/api"
 
-export default function FIIDIIFlows() {
+export default function FIIDIIFlows({ refreshKey }: { refreshKey?: number } = {}) {
   const [dailyData, setDailyData] = useState<FIIDIIDailyData[]>([])
   const [monthlyData, setMonthlyData] = useState<FIIDIIMonthlyData[]>([])
   const [allMonthlyData, setAllMonthlyData] = useState<FIIDIIMonthlyData[]>([])
@@ -35,7 +35,7 @@ export default function FIIDIIFlows() {
 
   useEffect(() => {
     loadData()
-  }, [selectedPeriod, selectedMonth])
+  }, [selectedPeriod, selectedMonth, refreshKey])
 
   const loadData = async () => {
     setLoading(true)

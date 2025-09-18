@@ -663,7 +663,7 @@ const MarketOverview = ({ marketData, additionalIndices }: {
   )
 }
 
-export default function Dashboard({ marketData }: { marketData: any }) {
+export default function Dashboard({ marketData, refreshKey }: { marketData: any, refreshKey: number }) {
   const [niftyChartData, setNiftyChartData] = useState<any[]>([])
   const [bankNiftyChartData, setBankNiftyChartData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -765,7 +765,7 @@ export default function Dashboard({ marketData }: { marketData: any }) {
     }
 
     fetchData()
-  }, [])
+  }, [refreshKey])
 
   if (loading) {
     return (

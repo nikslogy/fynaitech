@@ -23,9 +23,10 @@ interface MaxPainSummaryProps {
   instrument: string
   expiry: string
   timeframe: string
+  refreshKey?: number
 }
 
-export default function MaxPainSummary({ instrument, expiry, timeframe }: MaxPainSummaryProps) {
+export default function MaxPainSummary({ instrument, expiry, timeframe, refreshKey }: MaxPainSummaryProps) {
   const [maxPainData, setMaxPainData] = useState<MaxPainIntradayData[]>([])
   const [spotData, setSpotData] = useState<TodaySpotData | null>(null)
   const [processedChartData, setProcessedChartData] = useState<ProcessedMaxPainData[]>([])
@@ -36,7 +37,7 @@ export default function MaxPainSummary({ instrument, expiry, timeframe }: MaxPai
 
   useEffect(() => {
     loadData()
-  }, [instrument])
+  }, [instrument, refreshKey])
 
   const loadData = async () => {
     setLoading(true)

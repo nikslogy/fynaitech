@@ -179,6 +179,7 @@ export default function FynAIPage() {
   const [refreshEnabled, setRefreshEnabled] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(30)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [globalRefreshKey, setGlobalRefreshKey] = useState(0)
 
   const [marketData, setMarketData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -263,6 +264,8 @@ export default function FynAIPage() {
     setIsRefreshing(true)
     try {
       await fetchMarketData()
+      // Trigger global refresh for all components
+      setGlobalRefreshKey(prev => prev + 1)
     } finally {
       setIsRefreshing(false)
     }
@@ -329,7 +332,11 @@ export default function FynAIPage() {
       // Configurable auto-refresh
       let interval: NodeJS.Timeout | null = null
       if (refreshEnabled && refreshInterval > 0) {
-        interval = setInterval(fetchMarketData, refreshInterval * 1000)
+        interval = setInterval(() => {
+          fetchMarketData()
+          // Trigger global refresh for all components
+          setGlobalRefreshKey(prev => prev + 1)
+        }, refreshInterval * 1000)
       }
       return () => {
         if (interval) clearInterval(interval)
@@ -1261,7 +1268,7 @@ export default function FynAIPage() {
           </div>
 
           <TabsContent value="dashboard">
-            <Dashboard marketData={marketData} />
+            <Dashboard marketData={marketData} refreshKey={globalRefreshKey} />
           </TabsContent>
 
           <TabsContent value="option-chain">
@@ -1271,16 +1278,18 @@ export default function FynAIPage() {
               timeframe={selectedTimeframe}
               strikeRange={activeStrikeRange}
               strikeMode={strikeMode}
+              refreshKey={globalRefreshKey}
             />
           </TabsContent>
 
           <TabsContent value="pcr-intraday">
             <PCRIntraday
-              key={`${selectedInstrument}-${selectedTimeframe}-${activeStrikeRange}-${selectedExpiry}`}
+              key={`${selectedInstrument}-${selectedTimeframe}-${activeStrikeRange}-${selectedExpiry}-${globalRefreshKey}`}
               instrument={selectedInstrument}
               timeframe={selectedTimeframe}
               strikeRange={activeStrikeRange}
               expiry={selectedExpiry}
+              refreshKey={globalRefreshKey}
             />
           </TabsContent>
 
@@ -1290,15 +1299,16 @@ export default function FynAIPage() {
               expiry={selectedExpiry}
               timeframe={selectedTimeframe}
               strikeRange={activeStrikeRange}
+              refreshKey={globalRefreshKey}
             />
           </TabsContent>
 
           <TabsContent value="fii-dii">
-            <FIIDIIFlows />
+            <FIIDIIFlows refreshKey={globalRefreshKey} />
           </TabsContent>
 
           <TabsContent value="max-pain">
-            <MaxPainSummary instrument={selectedInstrument} expiry={selectedExpiry} timeframe={selectedTimeframe} />
+            <MaxPainSummary instrument={selectedInstrument} expiry={selectedExpiry} timeframe={selectedTimeframe} refreshKey={globalRefreshKey} />
           </TabsContent>
 
           <TabsContent value="option-data-indicator">
@@ -1306,6 +1316,7 @@ export default function FynAIPage() {
               instrument={selectedInstrument}
               expiry={selectedExpiry}
               strikeRange={activeStrikeRange}
+              refreshKey={globalRefreshKey}
             />
           </TabsContent>
         </Tabs>

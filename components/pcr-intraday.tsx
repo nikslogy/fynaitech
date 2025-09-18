@@ -16,6 +16,7 @@ interface PCRIntradayProps {
   strikeRange?: string
   strikeMode?: string
   expiry?: string
+  refreshKey?: number
 }
 
 interface ProcessedPCRData {
@@ -28,7 +29,7 @@ interface ProcessedPCRData {
   volumePCR: number
 }
 
-export default function PCRIntraday({ instrument, timeframe, strikeRange, strikeMode, expiry }: PCRIntradayProps) {
+export default function PCRIntraday({ instrument, timeframe, strikeRange, strikeMode, expiry, refreshKey }: PCRIntradayProps) {
   const [pcrData, setPcrData] = useState<ProcessedPCRData[]>([])
   const [chartData, setChartData] = useState<ProcessedPCRData[]>([])
   const [loading, setLoading] = useState(true)
@@ -139,7 +140,7 @@ export default function PCRIntraday({ instrument, timeframe, strikeRange, strike
     }
 
     fetchData()
-  }, [instrument, timeframe, strikeRange, expiry])
+  }, [instrument, timeframe, strikeRange, expiry, refreshKey])
 
   if (loading) {
     return (

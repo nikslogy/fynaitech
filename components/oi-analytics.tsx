@@ -18,9 +18,10 @@ interface OIAnalyticsProps {
   timeframe: string
   strikeRange: string
   strikeMode?: string
+  refreshKey?: number
 }
 
-export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange, strikeMode }: OIAnalyticsProps) {
+export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange, strikeMode, refreshKey }: OIAnalyticsProps) {
   const [timeRangeFilter, setTimeRangeFilter] = useState("full-session")
   const [customStartTime, setCustomStartTime] = useState("09:15")
   const [customEndTime, setCustomEndTime] = useState("15:30")
@@ -125,7 +126,7 @@ export default function OIAnalytics({ instrument, expiry, timeframe, strikeRange
     }
 
     fetchData()
-  }, [instrument, expiry, timeframe, strikeRange, strikeMode, timeRangeFilter, customStartTime, customEndTime])
+  }, [instrument, expiry, timeframe, strikeRange, strikeMode, timeRangeFilter, customStartTime, customEndTime, refreshKey])
 
   const strikeWiseData = processOIData(oiData)
 

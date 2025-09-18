@@ -14,6 +14,7 @@ interface OptionChainProps {
   timeframe: string
   strikeRange: string
   strikeMode?: string
+  refreshKey?: number
 }
 
 interface OptionData {
@@ -40,7 +41,7 @@ interface OptionData {
   isATM?: boolean
 }
 
-export default function OptionChain({ instrument, expiry, timeframe, strikeRange, strikeMode }: OptionChainProps) {
+export default function OptionChain({ instrument, expiry, timeframe, strikeRange, strikeMode, refreshKey }: OptionChainProps) {
   const [viewMode, setViewMode] = useState("standard")
   const [showGreeks, setShowGreeks] = useState(false)
   const [showVolume, setShowVolume] = useState(true)
@@ -87,7 +88,7 @@ export default function OptionChain({ instrument, expiry, timeframe, strikeRange
     }
 
     fetchData()
-  }, [instrument])
+  }, [instrument, refreshKey])
 
 
   // More robust expiry matching
