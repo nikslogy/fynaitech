@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap } from "lucide-react"
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart } from "recharts"
 import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData } from "@/lib/api"
@@ -22,6 +22,7 @@ export default function GannStrategyLivePage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [showLevelPrices, setShowLevelPrices] = useState(true) // Show prices in chart labels
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
+  const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
 
   const fetchIntradayData = useCallback(async (showLoading = false) => {
     try {
@@ -660,10 +661,33 @@ export default function GannStrategyLivePage() {
             {/* Enhanced Strategy Analysis */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Strategy Analysis
+                <CardTitle className="text-base flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    Gann Strategy Analysis
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowStrategyInfo(!showStrategyInfo)}
+                    className="h-6 w-6 p-0 hover:bg-muted"
+                  >
+                    <Info className="w-4 h-4" />
+                  </Button>
                 </CardTitle>
+                {showStrategyInfo && (
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Gann Strategy Logic</h4>
+                    <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                      <div><strong>Basis:</strong> Gann Square of 9 levels from last NIFTY closing price</div>
+                      <div><strong>PUT BUY:</strong> When NIFTY falls below S1</div>
+                      <div><strong>CALL BUY:</strong> When NIFTY rises above R1</div>
+                      <div><strong>Targets:</strong> S1→S2→S3→S4→S5 (PUT) or R1→R2→R3→R4→R5 (CALL)</div>
+                      <div><strong>Stop Loss:</strong> Previous target becomes stop loss</div>
+                      <div><strong>Wait Zone:</strong> Between S1 and R1 - wait for breakout</div>
+                    </div>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Option Trading Signal */}
