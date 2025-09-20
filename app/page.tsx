@@ -508,20 +508,39 @@ export default function FynAIPage() {
                       </div>
 
                       {strikeMode === "default" && (
-                        <div>
-                          <Label className="text-sm font-medium">ATM Range</Label>
-                          <Select value={strikeRange} onValueChange={setStrikeRange}>
-                            <SelectTrigger className="w-full mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Strike Range</Label>
+                          <div className="flex gap-2">
+                            <Select value={strikeRange === "ALL" ? "ALL" : "custom"} onValueChange={(value) => {
+                              if (value === "ALL") {
+                                setStrikeRange("ALL")
+                              } else {
+                                setStrikeRange("ATM±5")
+                              }
+                            }}>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="ATM±5">ATM±5</SelectItem>
-                              <SelectItem value="ATM±10">ATM±10</SelectItem>
-                              <SelectItem value="ATM±15">ATM±15</SelectItem>
-                              <SelectItem value="ATM±20">ATM±20</SelectItem>
                               <SelectItem value="ALL">All Strikes</SelectItem>
+                              <SelectItem value="custom">ATM ± Custom</SelectItem>
                             </SelectContent>
-                          </Select>
+                            </Select>
+                            {strikeRange !== "ALL" && (
+                              <Input
+                                type="number"
+                                value={strikeRange.replace("ATM±", "")}
+                                onChange={(e) => setStrikeRange(`ATM±${e.target.value}`)}
+                                placeholder="5"
+                                min="1"
+                                max="50"
+                                className="w-20"
+                              />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Choose "All Strikes" for complete range or set custom ATM± range
+                          </p>
                         </div>
                       )}
 
@@ -762,23 +781,42 @@ export default function FynAIPage() {
                       </Select>
                     </div>
 
-                    {strikeMode === "default" && (
-                      <div>
-                        <Label className="text-sm font-medium">ATM Range</Label>
-                        <Select value={strikeRange} onValueChange={setStrikeRange}>
-                          <SelectTrigger className="w-full mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ATM±5">ATM±5</SelectItem>
-                            <SelectItem value="ATM±10">ATM±10</SelectItem>
-                            <SelectItem value="ATM±15">ATM±15</SelectItem>
-                            <SelectItem value="ATM±20">ATM±20</SelectItem>
-                            <SelectItem value="ALL">All Strikes</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                      {strikeMode === "default" && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Strike Range</Label>
+                          <div className="flex gap-2">
+                            <Select value={strikeRange === "ALL" ? "ALL" : "custom"} onValueChange={(value) => {
+                              if (value === "ALL") {
+                                setStrikeRange("ALL")
+                              } else {
+                                setStrikeRange("ATM±5")
+                              }
+                            }}>
+                              <SelectTrigger className="flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ALL">All Strikes</SelectItem>
+                              <SelectItem value="custom">ATM ± Custom</SelectItem>
+                            </SelectContent>
+                            </Select>
+                            {strikeRange !== "ALL" && (
+                              <Input
+                                type="number"
+                                value={strikeRange.replace("ATM±", "")}
+                                onChange={(e) => setStrikeRange(`ATM±${e.target.value}`)}
+                                placeholder="5"
+                                min="1"
+                                max="50"
+                                className="w-20"
+                              />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Choose "All Strikes" for complete range or set custom ATM± range
+                          </p>
+                        </div>
+                      )}
 
                     {strikeMode === "range" && (
                       <div className="grid grid-cols-2 gap-2">
