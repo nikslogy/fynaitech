@@ -176,7 +176,7 @@ export default function FynAIPage() {
   const [isStrikeModalOpen, setIsStrikeModalOpen] = useState(false)
   const [expiryOptions, setExpiryOptions] = useState<any[]>([])
   const [activeStrikeRange, setActiveStrikeRange] = useState("")
-  const [refreshEnabled, setRefreshEnabled] = useState(true)
+  const [refreshEnabled, setRefreshEnabled] = useState(false)
   const [refreshInterval, setRefreshInterval] = useState(30)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [globalRefreshKey, setGlobalRefreshKey] = useState(0)
@@ -242,11 +242,11 @@ export default function FynAIPage() {
         },
         putCallRatio: {
           value: latestPCR?.pcr || 0,
-          signal: latestPCR && latestPCR.pcr < 1 ? "Bullish" : latestPCR && latestPCR.pcr > 1.2 ? "Bearish" : "Neutral"
+          signal: !latestPCR ? "Neutral": latestPCR.pcr < 1 ? "Bearish" : latestPCR.pcr > 1.2 ? "Bullish" : "Neutral"
         },
         changeOIPCR: latestPCR?.change_oi_pcr || 0,
         volumePCR: latestPCR?.volume_pcr || 0,
-        marketSentiment: stockData.filter(item => item.change_per > 0).length > stockData.length / 2 ? "Bullish" : "Bearish",
+        marketSentiment: stockData.length == 0? "Neutral": stockData.filter(item => item.change_per > 0).length > stockData.length / 2 ? "Bullish" : "Bearish",
         keyLevels: {
           support: niftyData ? Math.floor(niftyData.low / 50) * 50 : 0,
           resistance: niftyData ? Math.ceil(niftyData.high / 50) * 50 : 0,
