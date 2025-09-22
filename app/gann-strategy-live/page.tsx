@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown, ChevronUp } from "lucide-react"
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart } from "recharts"
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from "recharts"
 import { Slider } from "@/components/ui/slider"
-import { fetchMaxPainIntradayChart, MaxPainIntradayData } from "@/lib/api"
+import { fetchMaxPainIntradayChart, MaxPainIntradayData, fetchOITimeRangeData, fetchTrendingOIData, OITimeRangeData, TrendingOIData, formatNumber } from "@/lib/api"
 
 // Define the strategy data interface
 interface GannLevel {
@@ -43,6 +45,29 @@ export default function GannStrategyLivePage() {
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
   const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
   const [chartControlsCollapsed, setChartControlsCollapsed] = useState(false) // Chart controls collapsed state
+
+  // OI Analytics state
+  const [oiInterval, setOiInterval] = useState('3') // 1, 3, 5 minutes
+  const [oiStrikeRangeEnabled, setOiStrikeRangeEnabled] = useState(false) // Enable/disable strike range filtering
+  const [oiStartStrike, setOiStartStrike] = useState('22700') // Start strike for range
+  const [oiEndStrike, setOiEndStrike] = useState('27150') // End strike for range
+  const [oiStartTime, setOiStartTime] = useState('09:15')
+  const [oiEndTime, setOiEndTime] = useState('15:30')
+  const [oiData, setOiData] = useState<OITimeRangeData[]>([])
+  const [trendingData, setTrendingData] = useState<TrendingOIData[]>([])
+  const [oiLoading, setOiLoading] = useState(false)
+
+  // Generate strike options (ATM ±50 strikes)
+  const generateStrikeOptions = () => {
+    const strikes = []
+    const atm = 25000 // Approximate ATM
+    for (let i = atm - 50 * 50; i <= atm + 50 * 50; i += 50) {
+      strikes.push(i.toString())
+    }
+    return strikes
+  }
+
+  const strikeOptions = generateStrikeOptions()
 
   const fetchIntradayData = useCallback(async (showLoading = false) => {
     try {
@@ -79,6 +104,52 @@ export default function GannStrategyLivePage() {
   const handleManualRefresh = useCallback(() => {
     fetchIntradayData(true)
   }, [fetchIntradayData])
+
+  // Fetch OI Analytics data
+  const fetchOIData = useCallback(async () => {
+    try {
+      setOiLoading(true)
+
+      // Fetch strike-wise OI data
+      const rawOIData = await fetchOITimeRangeData(
+        'nifty',
+        `${oiStartTime}:00`,
+        `${oiEndTime}:00`,
+        ''
+      )
+
+      // Get expiry date from OI data or use default
+      const expiryDate = rawOIData && rawOIData.length > 0 ? rawOIData[0].expiry_date : '2025-09-16T00:00:00'
+
+      if (rawOIData && rawOIData.length > 0) {
+        setOiData(rawOIData)
+      }
+
+      // Determine strike range for trending data
+      const strikeRange = oiStrikeRangeEnabled
+        ? `${oiStartStrike},${oiEndStrike}`
+        : '24650,24700,24750,24800,24850,24900,24950,25000,25050,25100,25150,25200,25250,25300,25350,25400,25450,25500,25550,25600'
+
+      // Fetch trending OI data for time-series
+      const rawTrendingData = await fetchTrendingOIData(
+        'nifty',
+        strikeRange,
+        expiryDate,
+        oiInterval,
+        ''
+      )
+
+      setTrendingData(rawTrendingData)
+
+    } catch (err) {
+      console.error('Error fetching OI data:', err)
+      // Set empty data if there's an error
+      setOiData([])
+      setTrendingData([])
+    } finally {
+      setOiLoading(false)
+    }
+  }, [oiInterval, oiStrikeRangeEnabled, oiStartStrike, oiEndStrike, oiStartTime, oiEndTime])
 
   // Keep ref updated with current strategy data
   useEffect(() => {
@@ -117,6 +188,11 @@ export default function GannStrategyLivePage() {
 
     return () => clearInterval(interval)
   }, [autoRefresh, fetchIntradayData])
+
+  // Fetch OI data on mount and when parameters change
+  useEffect(() => {
+    fetchOIData()
+  }, [fetchOIData])
 
   const getChartData = () => {
     if (!intradayData.length) return []
@@ -161,9 +237,46 @@ export default function GannStrategyLivePage() {
     return chartData
   }
 
-  const formatNumber = (num: number) => {
-    return num.toLocaleString('en-IN', { maximumFractionDigits: 2 })
+
+  // Process OI data for charts
+  const processOIDataForCharts = () => {
+    if (!oiData.length) return { totalCallsChangeOI: 0, totalPutsChangeOI: 0 }
+
+    const totalCallsChangeOI = oiData.reduce((sum, item) => sum + item.calls_change_oi, 0) / 100000 // Convert to lakhs
+    const totalPutsChangeOI = oiData.reduce((sum, item) => sum + item.puts_change_oi, 0) / 100000 // Convert to lakhs
+
+    return { totalCallsChangeOI, totalPutsChangeOI }
   }
+
+  const { totalCallsChangeOI, totalPutsChangeOI } = processOIDataForCharts()
+
+  // Data for Calls vs Puts chart
+  const callsPutsData = [
+    {
+      name: "Calls",
+      calls: totalCallsChangeOI,
+      puts: 0,
+      fill: "#22c55e"
+    },
+    {
+      name: "Puts",
+      calls: 0,
+      puts: totalPutsChangeOI,
+      fill: "#ef4444"
+    }
+  ]
+
+  // Prepare time-series data
+  const timeSeriesData = trendingData.map((item) => ({
+    time: item.time,
+    callChangeOI: item.calls_change_oi || 0,
+    putChangeOI: item.puts_change_oi || 0,
+    indexClose: item.index_close || 0
+  })).sort((a, b) => {
+    const [aHours, aMinutes] = a.time.split(':').map(Number)
+    const [bHours, bMinutes] = b.time.split(':').map(Number)
+    return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes)
+  })
 
   // Correct Option Trading Signals for Indian Traders
   const getOptionSignal = () => {
@@ -483,7 +596,7 @@ export default function GannStrategyLivePage() {
                 <CardTitle className="text-sm flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="w-4 h-4" />
-                    Chart Controls
+                    Chart & OI Analytics Controls
                   </div>
                   <Button
                     variant="ghost"
@@ -558,6 +671,106 @@ export default function GannStrategyLivePage() {
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>9:15 AM</span>
                     <span>3:30 PM</span>
+                  </div>
+                </div>
+
+                {/* OI Analytics Controls */}
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">OI Analytics:</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">Interval:</Label>
+                      <Select value={oiInterval} onValueChange={setOiInterval}>
+                        <SelectTrigger className="w-20 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1m</SelectItem>
+                          <SelectItem value="3">3m</SelectItem>
+                          <SelectItem value="5">5m</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Strike Range Toggle */}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Strike Range Filter:</Label>
+                    <Button
+                      variant={oiStrikeRangeEnabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setOiStrikeRangeEnabled(!oiStrikeRangeEnabled)}
+                      className="text-xs h-8"
+                    >
+                      {oiStrikeRangeEnabled ? "On" : "Off"}
+                    </Button>
+                  </div>
+
+                  {/* Strike Range Dropdowns */}
+                  {oiStrikeRangeEnabled && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Select Strike Range:</Label>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Select value={oiStartStrike} onValueChange={setOiStartStrike}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Start" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-40">
+                              {strikeOptions.map((strike) => (
+                                <SelectItem key={strike} value={strike}>
+                                  {strike}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <Select value={oiEndStrike} onValueChange={setOiEndStrike}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="End" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-40">
+                              {strikeOptions.map((strike) => (
+                                <SelectItem key={strike} value={strike}>
+                                  {strike}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Selected: {oiStartStrike} - {oiEndStrike}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Time Range for OI */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">OI Time Range:</Label>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          type="time"
+                          value={oiStartTime}
+                          onChange={(e) => setOiStartTime(e.target.value)}
+                          className="w-full h-8"
+                          min="09:15"
+                          max="15:30"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          type="time"
+                          value={oiEndTime}
+                          onChange={(e) => setOiEndTime(e.target.value)}
+                          className="w-full h-8"
+                          min="09:15"
+                          max="15:30"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 </CardContent>
@@ -713,6 +926,147 @@ export default function GannStrategyLivePage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* OI Analytics Charts */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {/* Calls vs Puts Change OI Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">Calls vs Puts Change OI Distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {oiLoading ? (
+                    <div className="flex items-center justify-center h-72 text-muted-foreground">
+                      Loading OI data...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={callsPutsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip
+                              formatter={(value: any, name: string, props: any) => {
+                                if (name === "Calls Change OI" && props.payload.calls !== 0) {
+                                  return [`${formatNumber(Math.abs(props.payload.calls), 2)}L`, "Calls Change OI"]
+                                } else if (name === "Puts Change OI" && props.payload.puts !== 0) {
+                                  return [`${formatNumber(Math.abs(props.payload.puts), 2)}L`, "Puts Change OI"]
+                                }
+                                return [null, null]
+                              }}
+                            />
+                            <Bar dataKey="calls" fill="#22c55e" name="Calls Change OI" />
+                            <Bar dataKey="puts" fill="#ef4444" name="Puts Change OI" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-4 text-sm text-muted-foreground text-center">
+                        Total Calls Change OI: {formatNumber(totalCallsChangeOI, 2)}L | Total Puts Change OI: {formatNumber(totalPutsChangeOI, 2)}L
+                      </div>
+
+                      {/* Chart Legend */}
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-0.5 bg-green-600"></div>
+                          <span>Calls Change OI</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-0.5 bg-red-600"></div>
+                          <span>Puts Change OI</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Change OI vs Index Price */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base sm:text-lg">Change OI vs Index Price</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {oiLoading ? (
+                    <div className="flex items-center justify-center h-72 text-muted-foreground">
+                      Loading time series data...
+                    </div>
+                  ) : timeSeriesData.length === 0 ? (
+                    <div className="flex items-center justify-center h-72 text-muted-foreground">
+                      No time series data available for selected parameters
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                            <XAxis
+                              dataKey="time"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 11, fill: '#6b7280' }}
+                            />
+                            <Tooltip
+                              formatter={(value: any, name: string, props: any) => {
+                                if (name === "CE Change") {
+                                  return [`${formatNumber(props.payload.callChangeOI, 0)}`, "CE Change"]
+                                } else if (name === "PE Change") {
+                                  return [`${formatNumber(props.payload.putChangeOI, 0)}`, "PE Change"]
+                                }
+                                return [formatNumber(value, 2), name]
+                              }}
+                              contentStyle={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                              }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="callChangeOI"
+                              stroke="#22c55e"
+                              strokeWidth={2}
+                              name="CE Change"
+                              dot={false}
+                              activeDot={{ r: 4, fill: '#22c55e' }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="putChangeOI"
+                              stroke="#ef4444"
+                              strokeWidth={2}
+                              name="PE Change"
+                              dot={false}
+                              activeDot={{ r: 4, fill: '#ef4444' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Chart Legend */}
+                      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-0.5 bg-green-600"></div>
+                          <span>CE (Calls) Change OI</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-0.5 bg-red-600"></div>
+                          <span>PE (Puts) Change OI</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           {/* Levels Panel - Takes 1/3 on large screens */}
