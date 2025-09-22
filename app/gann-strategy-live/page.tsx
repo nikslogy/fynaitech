@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,8 +10,27 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tool
 import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData } from "@/lib/api"
 
+// Define the strategy data interface
+interface GannLevel {
+  order: number
+  value: number
+}
+
+interface GannLevels {
+  supports: GannLevel[]
+  resistances: GannLevel[]
+}
+
+interface StrategyData {
+  basePrice: string
+  currentNiftyPrice: number
+  gannLevels: GannLevels
+  timestamp: string
+}
+
 export default function GannStrategyLivePage() {
-  const [strategyData, setStrategyData] = useState<any>(null)
+  const [strategyData, setStrategyData] = useState<StrategyData | null>(null)
+  const strategyDataRef = useRef<StrategyData | null>(null)
   const [intradayData, setIntradayData] = useState<MaxPainIntradayData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,6 +49,24 @@ export default function GannStrategyLivePage() {
       const data = await fetchMaxPainIntradayChart('nifty', 'nse')
       setIntradayData(data)
       setLastRefresh(new Date())
+
+      // Update current NIFTY price in strategy data if we have strategy data
+      if (strategyDataRef.current && data.length > 0) {
+        const latestData = data[0]
+        const spotPrices = latestData.spot_price.split(',').map(price => parseFloat(price.trim()))
+        const latestPrice = spotPrices[spotPrices.length - 1] // Get the last (most recent) price
+
+        if (!isNaN(latestPrice)) {
+          setStrategyData(prevData => {
+            if (!prevData) return prevData
+            return {
+              ...prevData,
+              currentNiftyPrice: latestPrice,
+              timestamp: new Date().toISOString()
+            }
+          })
+        }
+      }
     } catch (err) {
       console.error('Error fetching intraday data:', err)
     } finally {
@@ -41,6 +78,11 @@ export default function GannStrategyLivePage() {
   const handleManualRefresh = useCallback(() => {
     fetchIntradayData(true)
   }, [fetchIntradayData])
+
+  // Keep ref updated with current strategy data
+  useEffect(() => {
+    strategyDataRef.current = strategyData
+  }, [strategyData])
 
   useEffect(() => {
     // Load strategy data from localStorage
