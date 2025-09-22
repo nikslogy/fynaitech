@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info } from "lucide-react"
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown, ChevronUp } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart } from "recharts"
 import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData } from "@/lib/api"
@@ -42,6 +42,7 @@ export default function GannStrategyLivePage() {
   const [showLevelPrices, setShowLevelPrices] = useState(true) // Show prices in chart labels
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
   const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
+  const [chartControlsCollapsed, setChartControlsCollapsed] = useState(false) // Chart controls collapsed state
 
   const fetchIntradayData = useCallback(async (showLoading = false) => {
     try {
@@ -476,6 +477,93 @@ export default function GannStrategyLivePage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Chart Section - Takes 2/3 on large screens */}
           <div className="xl:col-span-2 space-y-6">
+            {/* Chart Controls */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4" />
+                    Chart Controls
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setChartControlsCollapsed(!chartControlsCollapsed)}
+                    className="h-6 w-6 p-0 hover:bg-muted"
+                  >
+                    {chartControlsCollapsed ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4" />
+                    )}
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              {!chartControlsCollapsed && (
+                <CardContent className="space-y-4">
+                {/* View Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">View Mode:</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={chartMode === 'full' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartMode('full')}
+                      className="h-8"
+                    >
+                      <ZoomOut className="w-3 h-3 mr-1" />
+                      Full View
+                    </Button>
+                    <Button
+                      variant={chartMode === 'zoomed' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setChartMode('zoomed')}
+                      className="h-8"
+                    >
+                      <ZoomIn className="w-3 h-3 mr-1" />
+                      Zoomed
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Level Price Display Toggle */}
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Show Level Prices:</Label>
+                  <Button
+                    variant={showLevelPrices ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowLevelPrices(!showLevelPrices)}
+                    className="text-xs"
+                  >
+                    {showLevelPrices ? "On" : "Off"}
+                  </Button>
+                </div>
+
+                {/* Time Range Slider */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Time Range:</Label>
+                    <span className="text-xs text-muted-foreground">
+                      {timeFilter[0]}% - {timeFilter[1]}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={timeFilter}
+                    onValueChange={(value) => setTimeFilter(value as [number, number])}
+                    max={100}
+                    min={0}
+                    step={5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>9:15 AM</span>
+                    <span>3:30 PM</span>
+                  </div>
+                </div>
+                </CardContent>
+              )}
+            </Card>
+
             {/* Live Chart */}
             <Card>
               <CardHeader>
@@ -485,7 +573,7 @@ export default function GannStrategyLivePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                  <div className="h-96 w-full relative">
+                  <div className={`${chartControlsCollapsed ? 'h-[480px]' : 'h-96'} w-full relative transition-all duration-300`}>
                   {chartData.length > 0 ? (
                     <>
                     <ResponsiveContainer width="100%" height="100%">
@@ -625,81 +713,57 @@ export default function GannStrategyLivePage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Chart Controls */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Chart Controls
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* View Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">View Mode:</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant={chartMode === 'full' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartMode('full')}
-                      className="h-8"
-                    >
-                      <ZoomOut className="w-3 h-3 mr-1" />
-                      Full View
-                    </Button>
-                    <Button
-                      variant={chartMode === 'zoomed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartMode('zoomed')}
-                      className="h-8"
-                    >
-                      <ZoomIn className="w-3 h-3 mr-1" />
-                      Zoomed
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Level Price Display Toggle */}
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Show Level Prices:</Label>
-                  <Button
-                    variant={showLevelPrices ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowLevelPrices(!showLevelPrices)}
-                    className="text-xs"
-                  >
-                    {showLevelPrices ? "On" : "Off"}
-                  </Button>
-                </div>
-
-                {/* Time Range Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Time Range:</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {timeFilter[0]}% - {timeFilter[1]}%
-                    </span>
-                  </div>
-                  <Slider
-                    value={timeFilter}
-                    onValueChange={(value) => setTimeFilter(value as [number, number])}
-                    max={100}
-                    min={0}
-                    step={5}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>9:15 AM</span>
-                    <span>3:30 PM</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Levels Panel - Takes 1/3 on large screens */}
           <div className="space-y-6">
+            {/* Gann Levels */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  Gann Levels
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Resistance Levels */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-4 h-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-600">Resistance</span>
+                  </div>
+                  <div className="space-y-2">
+                    {strategyData.gannLevels.resistances.map((level: any) => (
+                      <div key={level.order} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-red-700">R{level.order}:</span>
+                        <span className="font-mono text-sm font-semibold text-red-800">
+                          {formatNumber(level.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Support Levels */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-600">Support</span>
+                  </div>
+                  <div className="space-y-2">
+                    {strategyData.gannLevels.supports.map((level: any) => (
+                      <div key={level.order} className="flex items-center justify-between py-1">
+                        <span className="text-sm text-green-700">S{level.order}:</span>
+                        <span className="font-mono text-sm font-semibold text-green-800">
+                          {formatNumber(level.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Enhanced Strategy Analysis */}
             <Card>
               <CardHeader>
@@ -846,53 +910,6 @@ export default function GannStrategyLivePage() {
                 <div className="flex justify-between items-center text-xs text-muted-foreground">
                   <span>Generated:</span>
                   <span>{new Date(strategyData.timestamp).toLocaleString()}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Gann Levels */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calculator className="w-4 h-4" />
-                  Gann Levels
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Resistance Levels */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-600">Resistance</span>
-                  </div>
-                  <div className="space-y-2">
-                    {strategyData.gannLevels.resistances.map((level: any) => (
-                      <div key={level.order} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-red-700">R{level.order}:</span>
-                        <span className="font-mono text-sm font-semibold text-red-800">
-                          {formatNumber(level.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Support Levels */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-600">Support</span>
-                  </div>
-                  <div className="space-y-2">
-                    {strategyData.gannLevels.supports.map((level: any) => (
-                      <div key={level.order} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-green-700">S{level.order}:</span>
-                        <span className="font-mono text-sm font-semibold text-green-800">
-                          {formatNumber(level.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </CardContent>
             </Card>
