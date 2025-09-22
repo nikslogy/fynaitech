@@ -985,9 +985,13 @@ export default function GannStrategyLivePage() {
                             <Tooltip
                               formatter={(value: any, name: string, props: any) => {
                                 if (name === "Calls Change OI" && props.payload.calls !== 0) {
-                                  return [`${formatNumber(Math.abs(props.payload.calls), 2)}L`, "Calls Change OI"]
+                                  const callsValue = props.payload.calls
+                                  const sign = callsValue < 0 ? '-' : ''
+                                  return [`${sign}${formatNumber(Math.abs(callsValue), 2)}L`, "Calls Change OI"]
                                 } else if (name === "Puts Change OI" && props.payload.puts !== 0) {
-                                  return [`${formatNumber(Math.abs(props.payload.puts), 2)}L`, "Puts Change OI"]
+                                  const putsValue = props.payload.puts
+                                  const sign = putsValue < 0 ? '-' : ''
+                                  return [`${sign}${formatNumber(Math.abs(putsValue), 2)}L`, "Puts Change OI"]
                                 }
                                 return [null, null]
                               }}
@@ -998,7 +1002,7 @@ export default function GannStrategyLivePage() {
                         </ResponsiveContainer>
                       </div>
                       <div className="mt-4 text-sm text-muted-foreground text-center">
-                        Total Calls Change OI: {formatNumber(totalCallsChangeOI, 2)}L | Total Puts Change OI: {formatNumber(totalPutsChangeOI, 2)}L
+                        Total Calls Change OI: {totalCallsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(totalCallsChangeOI), 2)}L | Total Puts Change OI: {totalPutsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(totalPutsChangeOI), 2)}L
                       </div>
 
                       {/* Chart Legend */}
@@ -1051,9 +1055,13 @@ export default function GannStrategyLivePage() {
                             <Tooltip
                               formatter={(value: any, name: string, props: any) => {
                                 if (name === "CE Change") {
-                                  return [`${formatNumber(props.payload.callChangeOI, 0)}`, "CE Change"]
+                                  const ceValue = props.payload.callChangeOI
+                                  const sign = ceValue < 0 ? '-' : ''
+                                  return [`${sign}${formatNumber(Math.abs(ceValue), 0)}`, "CE Change"]
                                 } else if (name === "PE Change") {
-                                  return [`${formatNumber(props.payload.putChangeOI, 0)}`, "PE Change"]
+                                  const peValue = props.payload.putChangeOI
+                                  const sign = peValue < 0 ? '-' : ''
+                                  return [`${sign}${formatNumber(Math.abs(peValue), 0)}`, "PE Change"]
                                 }
                                 return [formatNumber(value, 2), name]
                               }}
