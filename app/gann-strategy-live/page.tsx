@@ -101,10 +101,6 @@ export default function GannStrategyLivePage() {
     }
   }, [])
 
-  const handleManualRefresh = useCallback(() => {
-    fetchIntradayData(true)
-  }, [fetchIntradayData])
-
   // Fetch OI Analytics data
   const fetchOIData = useCallback(async () => {
     try {
@@ -151,6 +147,19 @@ export default function GannStrategyLivePage() {
     }
   }, [oiInterval, oiStrikeRangeEnabled, oiStartStrike, oiEndStrike, oiStartTime, oiEndTime])
 
+  const handleManualRefresh = useCallback(async () => {
+    if (isRefreshing || oiLoading) return // Prevent multiple simultaneous refreshes
+
+    try {
+      await Promise.all([
+        fetchIntradayData(true),
+        fetchOIData()
+      ])
+    } catch (error) {
+      console.error('Error during manual refresh:', error)
+    }
+  }, [fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
+
   // Keep ref updated with current strategy data
   useEffect(() => {
     strategyDataRef.current = strategyData
@@ -175,19 +184,39 @@ export default function GannStrategyLivePage() {
     }
 
     // Initial data fetch
-    fetchIntradayData()
-  }, [fetchIntradayData])
+    const initializeData = async () => {
+      try {
+        await Promise.all([
+          fetchIntradayData(),
+          fetchOIData()
+        ])
+      } catch (error) {
+        console.error('Error during initial data fetch:', error)
+      }
+    }
+
+    initializeData()
+  }, [fetchIntradayData, fetchOIData])
 
   // Auto-refresh effect
   useEffect(() => {
     if (!autoRefresh) return
 
-    const interval = setInterval(() => {
-      fetchIntradayData()
+    const interval = setInterval(async () => {
+      if (isRefreshing || oiLoading) return // Skip if already refreshing
+
+      try {
+        await Promise.all([
+          fetchIntradayData(),
+          fetchOIData()
+        ])
+      } catch (error) {
+        console.error('Error during auto-refresh:', error)
+      }
     }, 30000) // Refresh every 30 seconds
 
     return () => clearInterval(interval)
-  }, [autoRefresh, fetchIntradayData])
+  }, [autoRefresh, fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
 
   // Fetch OI data on mount and when parameters change
   useEffect(() => {
@@ -548,18 +577,24 @@ export default function GannStrategyLivePage() {
                 <span className="hidden sm:inline">{autoRefresh ? 'Auto Refresh' : 'Manual'}</span>
                 <span className="sm:hidden">{autoRefresh ? 'Auto' : 'Manual'}</span>
               </Badge>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                <span className="hidden sm:inline">Last: {lastRefresh.toLocaleTimeString()}</span>
-                <span className="sm:hidden">{lastRefresh.toLocaleTimeString().split(' ')[1]}</span>
-              </span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  <span className="hidden sm:inline">Last: {lastRefresh.toLocaleTimeString()}</span>
+                  <span className="sm:hidden">{lastRefresh.toLocaleTimeString().split(' ')[1]}</span>
+                </span>
+                {oiLoading && (
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                    <span>OI</span>
+                  </div>
+                )}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleManualRefresh}
-                disabled={isRefreshing}
+                disabled={isRefreshing || oiLoading}
                 className="text-xs px-2 py-1 h-7"
               >
-                <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 ${(isRefreshing || oiLoading) ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline ml-1">Refresh</span>
               </Button>
               <Button
