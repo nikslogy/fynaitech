@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown } from "lucide-react"
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown, ChevronUp } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from "recharts"
 import { Slider } from "@/components/ui/slider"
@@ -45,6 +45,7 @@ export default function GannStrategyLivePage() {
   const [showLevelPrices, setShowLevelPrices] = useState(true) // Show prices in chart labels
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
   const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
+  const [gannLevelsCollapsed, setGannLevelsCollapsed] = useState(false) // Gann Levels collapsed state
 
   // OI Analytics state
   const [oiInterval, setOiInterval] = useState('3') // 1, 3, 5 minutes
@@ -1235,66 +1236,7 @@ export default function GannStrategyLivePage() {
             </Card>
 
             {/* OI Analytics Charts */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Calls vs Puts Change OI Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base sm:text-lg">Latest CE/PE Change OI</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {oiLoading ? (
-                    <div className="flex items-center justify-center h-72 text-muted-foreground">
-                      Loading OI data...
-                    </div>
-                  ) : (
-                    <>
-                      <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={callsPutsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip
-                              formatter={(value: any, name: string, props: any) => {
-                                if (name === "Calls Change OI" && props.payload.calls !== 0) {
-                                  const callsValue = props.payload.calls
-                                  const sign = callsValue < 0 ? '-' : ''
-                                  const lakhsValue = callsValue / 100000
-                                  return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Calls Change OI"]
-                                } else if (name === "Puts Change OI" && props.payload.puts !== 0) {
-                                  const putsValue = props.payload.puts
-                                  const sign = putsValue < 0 ? '-' : ''
-                                  const lakhsValue = putsValue / 100000
-                                  return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Puts Change OI"]
-                                }
-                                return [null, null]
-                              }}
-                            />
-                            <Bar dataKey="calls" fill="#22c55e" name="Calls Change OI" />
-                            <Bar dataKey="puts" fill="#ef4444" name="Puts Change OI" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="mt-4 text-sm text-muted-foreground text-center">
-                        Latest Calls Change OI: {latestCallsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestCallsChangeOI) / 100000, 1)}L | Latest Puts Change OI: {latestPutsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestPutsChangeOI) / 100000, 1)}L
-                      </div>
-
-                      {/* Chart Legend */}
-                      <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-0.5 bg-green-600"></div>
-                          <span>Calls Change OI</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-0.5 bg-red-600"></div>
-                          <span>Puts Change OI</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
+            <div className="grid grid-cols-1 gap-6">
               {/* Change OI vs Index Price */}
               <Card>
                 <CardHeader>
@@ -1302,16 +1244,16 @@ export default function GannStrategyLivePage() {
                 </CardHeader>
                 <CardContent>
                   {oiLoading ? (
-                    <div className="flex items-center justify-center h-72 text-muted-foreground">
+                    <div className="flex items-center justify-center h-[500px] text-muted-foreground">
                       Loading time series data...
                     </div>
                   ) : timeSeriesData.length === 0 ? (
-                    <div className="flex items-center justify-center h-72 text-muted-foreground">
+                    <div className="flex items-center justify-center h-[500px] text-muted-foreground">
                       No time series data available for selected parameters
                     </div>
                   ) : (
                     <>
-                      <div className="h-72">
+                      <div className="h-[500px]">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={timeSeriesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
@@ -1390,48 +1332,123 @@ export default function GannStrategyLivePage() {
           <div className="space-y-6">
             {/* Gann Levels */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calculator className="w-4 h-4" />
-                  Gann Levels
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4" />
+                    Gann Levels
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setGannLevelsCollapsed(!gannLevelsCollapsed)}
+                    className="h-6 w-6 p-0 hover:bg-muted"
+                  >
+                    {gannLevelsCollapsed ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronUp className="w-4 h-4" />
+                    )}
+                  </Button>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Resistance Levels */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-600">Resistance</span>
+              {!gannLevelsCollapsed && (
+                <CardContent className="space-y-4">
+                  {/* Resistance Levels */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-4 h-4 text-red-600" />
+                      <span className="text-sm font-medium text-red-600">Resistance</span>
+                    </div>
+                    <div className="space-y-2">
+                      {strategyData.gannLevels.resistances.map((level: any) => (
+                        <div key={level.order} className="flex items-center justify-between py-1">
+                          <span className="text-sm text-red-700">R{level.order}:</span>
+                          <span className="font-mono text-sm font-semibold text-red-800">
+                            {formatNumber(level.value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {strategyData.gannLevels.resistances.map((level: any) => (
-                      <div key={level.order} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-red-700">R{level.order}:</span>
-                        <span className="font-mono text-sm font-semibold text-red-800">
-                          {formatNumber(level.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* Support Levels */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-4 h-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-600">Support</span>
+                  {/* Support Levels */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingDown className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-600">Support</span>
+                    </div>
+                    <div className="space-y-2">
+                      {strategyData.gannLevels.supports.map((level: any) => (
+                        <div key={level.order} className="flex items-center justify-between py-1">
+                          <span className="text-sm text-green-700">S{level.order}:</span>
+                          <span className="font-mono text-sm font-semibold text-green-800">
+                            {formatNumber(level.value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {strategyData.gannLevels.supports.map((level: any) => (
-                      <div key={level.order} className="flex items-center justify-between py-1">
-                        <span className="text-sm text-green-700">S{level.order}:</span>
-                        <span className="font-mono text-sm font-semibold text-green-800">
-                          {formatNumber(level.value)}
-                        </span>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Latest CE/PE Change OI Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base sm:text-lg">Latest CE/PE Change OI</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {oiLoading ? (
+                  <div className="flex items-center justify-center h-72 text-muted-foreground">
+                    Loading OI data...
+                  </div>
+                ) : (
+                  <>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={callsPutsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip
+                            formatter={(value: any, name: string, props: any) => {
+                              if (name === "Calls Change OI" && props.payload.calls !== 0) {
+                                const callsValue = props.payload.calls
+                                const sign = callsValue < 0 ? '-' : ''
+                                const lakhsValue = callsValue / 100000
+                                return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Calls Change OI"]
+                              } else if (name === "Puts Change OI" && props.payload.puts !== 0) {
+                                const putsValue = props.payload.puts
+                                const sign = putsValue < 0 ? '-' : ''
+                                const lakhsValue = putsValue / 100000
+                                return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Puts Change OI"]
+                              }
+                              return [null, null]
+                            }}
+                          />
+                          <Bar dataKey="calls" fill="#22c55e" name="Calls Change OI" />
+                          <Bar dataKey="puts" fill="#ef4444" name="Puts Change OI" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 text-sm text-muted-foreground text-center">
+                      Latest Calls Change OI: {latestCallsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestCallsChangeOI) / 100000, 1)}L | Latest Puts Change OI: {latestPutsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestPutsChangeOI) / 100000, 1)}L
+                    </div>
+
+                    {/* Chart Legend */}
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-green-600"></div>
+                        <span>Calls Change OI</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-red-600"></div>
+                        <span>Puts Change OI</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
