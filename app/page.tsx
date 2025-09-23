@@ -271,27 +271,82 @@ export default function FynAIPage() {
     }
   }
 
-  // Generate weekly expiry dates starting from next available expiry
+  // Generate weekly expiry dates starting from next valid expiry (Tuesday)
   const generateWeeklyExpiryDates = (): any[] => {
     const expiryDates = []
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset time to start of day
 
-    // Start from September 23, 2025 as mentioned by user
-    const startDate = new Date('2025-09-23')
+    // Find the next Tuesday (NIFTY expiry day)
+    const currentDay = today.getDay() // 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
+    let daysUntilNextTuesday = 2 - currentDay // Tuesday is day 2
 
-    // Generate next 8 weekly expiry dates (every 7 days)
+    if (daysUntilNextTuesday < 0) {
+      // If today is Wednesday, Thursday, Friday, Saturday, Sunday, Monday, get next Tuesday
+      daysUntilNextTuesday += 7
+    } else if (daysUntilNextTuesday === 0) {
+      // If today is Tuesday, check if it's before market close (3:30 PM)
+      const now = new Date()
+      const marketClose = new Date(today)
+      marketClose.setHours(15, 30, 0, 0) // 3:30 PM
+
+      if (now > marketClose) {
+        // Market closed, get next Tuesday
+        daysUntilNextTuesday += 7
+      }
+      // If market still open, use today's Tuesday expiry
+    }
+
+    // Start from the next Tuesday
+    const startDate = new Date(today)
+    startDate.setDate(today.getDate() + daysUntilNextTuesday)
+
+    // Generate next 8 weekly expiry dates (every 7 days from the next Tuesday)
     for (let i = 0; i < 8; i++) {
       const expiryDate = new Date(startDate)
       expiryDate.setDate(startDate.getDate() + (i * 7))
 
-      const dateStr = expiryDate.toISOString().split('T')[0]
-      const month = dateStr.slice(5, 7)
-      const day = dateStr.slice(8, 10)
+      // Only include future dates (should always be true with new logic)
+      if (expiryDate >= today) {
+        // Use local date to avoid timezone issues
+        const year = expiryDate.getFullYear()
+        const month = String(expiryDate.getMonth() + 1).padStart(2, '0')
+        const day = String(expiryDate.getDate()).padStart(2, '0')
+        const dateStr = `${year}-${month}-${day}`
+        const monthShort = dateStr.slice(5, 7)
+        const dayShort = dateStr.slice(8, 10)
 
-      expiryDates.push({
-        expiry: dateStr + 'T00:00:00',
-        trading_symbol: `NIFTY${month}${day}FUT`,
-        expiry_date: dateStr
-      })
+        expiryDates.push({
+          expiry: dateStr + 'T00:00:00',
+          trading_symbol: `NIFTY${monthShort}${dayShort}FUT`,
+          expiry_date: dateStr
+        })
+      }
+    }
+
+    // Fallback: If no dates generated, create some default future dates
+    if (expiryDates.length === 0) {
+      const fallbackDate = new Date(today)
+      fallbackDate.setDate(today.getDate() + 7) // Next week
+
+      for (let i = 0; i < 4; i++) {
+        const expiryDate = new Date(fallbackDate)
+        expiryDate.setDate(fallbackDate.getDate() + (i * 7))
+
+        // Use local date to avoid timezone issues
+        const year = expiryDate.getFullYear()
+        const month = String(expiryDate.getMonth() + 1).padStart(2, '0')
+        const day = String(expiryDate.getDate()).padStart(2, '0')
+        const dateStr = `${year}-${month}-${day}`
+        const monthShort = dateStr.slice(5, 7)
+        const dayShort = dateStr.slice(8, 10)
+
+        expiryDates.push({
+          expiry: dateStr + 'T00:00:00',
+          trading_symbol: `NIFTY${monthShort}${dayShort}FUT`,
+          expiry_date: dateStr
+        })
+      }
     }
 
     return expiryDates
