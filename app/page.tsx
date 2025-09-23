@@ -284,17 +284,17 @@ export default function FynAIPage() {
     if (daysUntilNextTuesday < 0) {
       // If today is Wednesday, Thursday, Friday, Saturday, Sunday, Monday, get next Tuesday
       daysUntilNextTuesday += 7
-    } else if (daysUntilNextTuesday === 0) {
-      // If today is Tuesday, check if it's before market close (3:30 PM)
-      const now = new Date()
-      const marketClose = new Date(today)
-      marketClose.setHours(15, 30, 0, 0) // 3:30 PM
+    } else     if (daysUntilNextTuesday === 0) {
+      // If today is Tuesday, keep it visible until tomorrow (Wednesday)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+      const isTomorrowWednesday = tomorrow.getDay() === 3 // Wednesday is 3
 
-      if (now > marketClose) {
-        // Market closed, get next Tuesday
+      if (!isTomorrowWednesday) {
+        // If tomorrow is not Wednesday, it means today is not Tuesday, so use next Tuesday
         daysUntilNextTuesday += 7
       }
-      // If market still open, use today's Tuesday expiry
+      // If tomorrow is Wednesday, keep today's Tuesday expiry visible
     }
 
     // Start from the next Tuesday
