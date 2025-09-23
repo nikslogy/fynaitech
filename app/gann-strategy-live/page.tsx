@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown, ChevronUp } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from "recharts"
 import { Slider } from "@/components/ui/slider"
-import { fetchMaxPainIntradayChart, MaxPainIntradayData, fetchOITimeRangeData, fetchTrendingOIData, OITimeRangeData, TrendingOIData, formatNumber } from "@/lib/api"
+import { fetchMaxPainIntradayChart, MaxPainIntradayData, fetchTrendingOIData, TrendingOIData, fetchFutureExpiryData, formatNumber } from "@/lib/api"
 
 // Define the strategy data interface
 interface GannLevel {
@@ -48,26 +48,39 @@ export default function GannStrategyLivePage() {
 
   // OI Analytics state
   const [oiInterval, setOiInterval] = useState('3') // 1, 3, 5 minutes
-  const [oiStrikeRangeEnabled, setOiStrikeRangeEnabled] = useState(false) // Enable/disable strike range filtering
-  const [oiStartStrike, setOiStartStrike] = useState('22700') // Start strike for range
-  const [oiEndStrike, setOiEndStrike] = useState('27150') // End strike for range
-  const [oiStartTime, setOiStartTime] = useState('09:15')
-  const [oiEndTime, setOiEndTime] = useState('15:30')
-  const [oiData, setOiData] = useState<OITimeRangeData[]>([])
+  const [defaultStartStrike, setDefaultStartStrike] = useState('24650') // Default start strike
+  const [defaultEndStrike, setDefaultEndStrike] = useState('25600') // Default end strike
+  const [selectedExpiry, setSelectedExpiry] = useState('') // Selected expiry for chart
+  const [expiryOptions, setExpiryOptions] = useState<any[]>([]) // Available expiry options
   const [trendingData, setTrendingData] = useState<TrendingOIData[]>([])
   const [oiLoading, setOiLoading] = useState(false)
 
-  // Generate strike options (ATM ±50 strikes)
-  const generateStrikeOptions = () => {
-    const strikes = []
-    const atm = 25000 // Approximate ATM
-    for (let i = atm - 50 * 50; i <= atm + 50 * 50; i += 50) {
-      strikes.push(i.toString())
-    }
-    return strikes
-  }
 
-  const strikeOptions = generateStrikeOptions()
+  // Generate weekly expiry dates starting from next available expiry
+  const generateWeeklyExpiryDates = (): any[] => {
+    const expiryDates = []
+
+    // Start from September 23, 2025 as mentioned by user
+    const startDate = new Date('2025-09-23')
+
+    // Generate next 8 weekly expiry dates (every 7 days)
+    for (let i = 0; i < 8; i++) {
+      const expiryDate = new Date(startDate)
+      expiryDate.setDate(startDate.getDate() + (i * 7))
+
+      const dateStr = expiryDate.toISOString().split('T')[0]
+      const month = dateStr.slice(5, 7)
+      const day = dateStr.slice(8, 10)
+
+      expiryDates.push({
+        expiry: dateStr + 'T00:00:00',
+        trading_symbol: `NIFTY${month}${day}FUT`,
+        expiry_date: dateStr
+      })
+    }
+
+    return expiryDates
+  }
 
   const fetchIntradayData = useCallback(async (showLoading = false) => {
     try {
@@ -101,36 +114,32 @@ export default function GannStrategyLivePage() {
     }
   }, [])
 
-  // Fetch OI Analytics data
+  // Generate default strike range from start to end
+  const generateDefaultStrikeRange = (start: string, end: string): string => {
+    const startStrike = parseInt(start)
+    const endStrike = parseInt(end)
+    const strikes = []
+
+    for (let strike = startStrike; strike <= endStrike; strike += 50) {
+      strikes.push(strike.toString())
+    }
+
+    return strikes.join(',')
+  }
+
+  // Fetch OI Analytics data (only trending data now)
   const fetchOIData = useCallback(async () => {
     try {
       setOiLoading(true)
 
-      // Fetch strike-wise OI data
-      const rawOIData = await fetchOITimeRangeData(
-        'nifty',
-        `${oiStartTime}:00`,
-        `${oiEndTime}:00`,
-        ''
-      )
-
-      // Get expiry date from OI data or use default
-      const expiryDate = rawOIData && rawOIData.length > 0 ? rawOIData[0].expiry_date : '2025-09-16T00:00:00'
-
-      if (rawOIData && rawOIData.length > 0) {
-        setOiData(rawOIData)
-      }
-
-      // Determine strike range for trending data
-      const strikeRange = oiStrikeRangeEnabled
-        ? `${oiStartStrike},${oiEndStrike}`
-        : '24650,24700,24750,24800,24850,24900,24950,25000,25050,25100,25150,25200,25250,25300,25350,25400,25450,25500,25550,25600'
+      // Determine strike range for trending data (always use default range now)
+      const strikeRange = generateDefaultStrikeRange(defaultStartStrike, defaultEndStrike)
 
       // Fetch trending OI data for time-series
       const rawTrendingData = await fetchTrendingOIData(
         'nifty',
         strikeRange,
-        expiryDate,
+        selectedExpiry,
         oiInterval,
         ''
       )
@@ -140,12 +149,11 @@ export default function GannStrategyLivePage() {
     } catch (err) {
       console.error('Error fetching OI data:', err)
       // Set empty data if there's an error
-      setOiData([])
       setTrendingData([])
     } finally {
       setOiLoading(false)
     }
-  }, [oiInterval, oiStrikeRangeEnabled, oiStartStrike, oiEndStrike, oiStartTime, oiEndTime])
+  }, [oiInterval, defaultStartStrike, defaultEndStrike, selectedExpiry])
 
   const handleManualRefresh = useCallback(async () => {
     if (isRefreshing || oiLoading) return // Prevent multiple simultaneous refreshes
@@ -218,10 +226,16 @@ export default function GannStrategyLivePage() {
     return () => clearInterval(interval)
   }, [autoRefresh, fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
 
-  // Fetch OI data on mount and when parameters change
+  // Initialize expiry options on component mount
   useEffect(() => {
-    fetchOIData()
-  }, [fetchOIData])
+    const expiryData = generateWeeklyExpiryDates()
+    setExpiryOptions(expiryData)
+    if (expiryData.length > 0 && !selectedExpiry) {
+      setSelectedExpiry(expiryData[0].expiry)
+    }
+  }, [])
+
+  // OI data is fetched in the initial data load useEffect above
 
   const getChartData = () => {
     if (!intradayData.length) return []
@@ -267,34 +281,6 @@ export default function GannStrategyLivePage() {
   }
 
 
-  // Process OI data for charts
-  const processOIDataForCharts = () => {
-    if (!oiData.length) return { totalCallsChangeOI: 0, totalPutsChangeOI: 0 }
-
-    const totalCallsChangeOI = oiData.reduce((sum, item) => sum + item.calls_change_oi, 0) / 100000 // Convert to lakhs
-    const totalPutsChangeOI = oiData.reduce((sum, item) => sum + item.puts_change_oi, 0) / 100000 // Convert to lakhs
-
-    return { totalCallsChangeOI, totalPutsChangeOI }
-  }
-
-  const { totalCallsChangeOI, totalPutsChangeOI } = processOIDataForCharts()
-
-  // Data for Calls vs Puts chart
-  const callsPutsData = [
-    {
-      name: "Calls",
-      calls: totalCallsChangeOI,
-      puts: 0,
-      fill: "#22c55e"
-    },
-    {
-      name: "Puts",
-      calls: 0,
-      puts: totalPutsChangeOI,
-      fill: "#ef4444"
-    }
-  ]
-
   // Prepare time-series data
   const timeSeriesData = trendingData.map((item) => ({
     time: item.time,
@@ -306,6 +292,38 @@ export default function GannStrategyLivePage() {
     const [bHours, bMinutes] = b.time.split(':').map(Number)
     return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes)
   })
+
+  // Process OI data for charts - use latest values from time series
+  const processOIDataForCharts = () => {
+    if (!timeSeriesData.length) return { latestCallsChangeOI: 0, latestPutsChangeOI: 0 }
+
+    // Get the latest (most recent) data point from time series
+    const latestData = timeSeriesData[timeSeriesData.length - 1]
+
+    // Values are already in the correct format, no need to divide by 100000 as they're not aggregated across strikes like before
+    const latestCallsChangeOI = latestData.callChangeOI || 0
+    const latestPutsChangeOI = latestData.putChangeOI || 0
+
+    return { latestCallsChangeOI, latestPutsChangeOI }
+  }
+
+  const { latestCallsChangeOI, latestPutsChangeOI } = processOIDataForCharts()
+
+  // Data for Calls vs Puts chart - showing latest CE/PE change values from time series
+  const callsPutsData = [
+    {
+      name: "Calls",
+      calls: latestCallsChangeOI,
+      puts: 0,
+      fill: "#22c55e"
+    },
+    {
+      name: "Puts",
+      calls: 0,
+      puts: latestPutsChangeOI,
+      fill: "#ef4444"
+    }
+  ]
 
   // Correct Option Trading Signals for Indian Traders
   const getOptionSignal = () => {
@@ -728,85 +746,64 @@ export default function GannStrategyLivePage() {
                     </div>
                   </div>
 
-                  {/* Strike Range Toggle */}
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Strike Range Filter:</Label>
-                    <Button
-                      variant={oiStrikeRangeEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setOiStrikeRangeEnabled(!oiStrikeRangeEnabled)}
-                      className="text-xs h-8"
-                    >
-                      {oiStrikeRangeEnabled ? "On" : "Off"}
-                    </Button>
+                  {/* Expiry Date Selector */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Expiry Date:</Label>
+                    <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                      <SelectTrigger className="w-full h-8">
+                        <SelectValue placeholder="Select expiry date" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {expiryOptions.map((expiry) => (
+                          <SelectItem key={expiry.expiry} value={expiry.expiry}>
+                            {new Date(expiry.expiry).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  {/* Strike Range Dropdowns */}
-                  {oiStrikeRangeEnabled && (
+
+                  {/* Default Strike Range Controls */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Select Strike Range:</Label>
+                      <Label className="text-sm font-medium">Default Strike Range:</Label>
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <Select value={oiStartStrike} onValueChange={setOiStartStrike}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Start" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-40">
-                              {strikeOptions.map((strike) => (
-                                <SelectItem key={strike} value={strike}>
-                                  {strike}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-xs text-muted-foreground">Start</Label>
+                          <Input
+                            type="number"
+                            value={defaultStartStrike}
+                            onChange={(e) => setDefaultStartStrike(e.target.value)}
+                            placeholder="24650"
+                            className="w-full h-8"
+                            min="20000"
+                            max="30000"
+                            step="50"
+                          />
                         </div>
                         <div className="flex-1">
-                          <Select value={oiEndStrike} onValueChange={setOiEndStrike}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="End" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-40">
-                              {strikeOptions.map((strike) => (
-                                <SelectItem key={strike} value={strike}>
-                                  {strike}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label className="text-xs text-muted-foreground">End</Label>
+                          <Input
+                            type="number"
+                            value={defaultEndStrike}
+                            onChange={(e) => setDefaultEndStrike(e.target.value)}
+                            placeholder="25600"
+                            className="w-full h-8"
+                            min="20000"
+                            max="30000"
+                            step="50"
+                          />
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Selected: {oiStartStrike} - {oiEndStrike}
+                        Range: {defaultStartStrike} - {defaultEndStrike} ({Math.floor((parseInt(defaultEndStrike) - parseInt(defaultStartStrike)) / 50) + 1} strikes)
                       </div>
                     </div>
-                  )}
 
-                  {/* Time Range for OI */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">OI Time Range:</Label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Input
-                          type="time"
-                          value={oiStartTime}
-                          onChange={(e) => setOiStartTime(e.target.value)}
-                          className="w-full h-8"
-                          min="09:15"
-                          max="15:30"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Input
-                          type="time"
-                          value={oiEndTime}
-                          onChange={(e) => setOiEndTime(e.target.value)}
-                          className="w-full h-8"
-                          min="09:15"
-                          max="15:30"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
                 </CardContent>
               )}
@@ -967,7 +964,7 @@ export default function GannStrategyLivePage() {
               {/* Calls vs Puts Change OI Distribution */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base sm:text-lg">Calls vs Puts Change OI Distribution</CardTitle>
+                  <CardTitle className="text-base sm:text-lg">Latest CE/PE Change OI</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {oiLoading ? (
@@ -987,11 +984,13 @@ export default function GannStrategyLivePage() {
                                 if (name === "Calls Change OI" && props.payload.calls !== 0) {
                                   const callsValue = props.payload.calls
                                   const sign = callsValue < 0 ? '-' : ''
-                                  return [`${sign}${formatNumber(Math.abs(callsValue), 2)}L`, "Calls Change OI"]
+                                  const lakhsValue = callsValue / 100000
+                                  return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Calls Change OI"]
                                 } else if (name === "Puts Change OI" && props.payload.puts !== 0) {
                                   const putsValue = props.payload.puts
                                   const sign = putsValue < 0 ? '-' : ''
-                                  return [`${sign}${formatNumber(Math.abs(putsValue), 2)}L`, "Puts Change OI"]
+                                  const lakhsValue = putsValue / 100000
+                                  return [`${sign}${formatNumber(Math.abs(lakhsValue), 1)}L`, "Puts Change OI"]
                                 }
                                 return [null, null]
                               }}
@@ -1002,7 +1001,7 @@ export default function GannStrategyLivePage() {
                         </ResponsiveContainer>
                       </div>
                       <div className="mt-4 text-sm text-muted-foreground text-center">
-                        Total Calls Change OI: {totalCallsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(totalCallsChangeOI), 2)}L | Total Puts Change OI: {totalPutsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(totalPutsChangeOI), 2)}L
+                        Latest Calls Change OI: {latestCallsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestCallsChangeOI) / 100000, 1)}L | Latest Puts Change OI: {latestPutsChangeOI < 0 ? '-' : ''}{formatNumber(Math.abs(latestPutsChangeOI) / 100000, 1)}L
                       </div>
 
                       {/* Chart Legend */}

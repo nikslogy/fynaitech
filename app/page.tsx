@@ -325,6 +325,13 @@ export default function FynAIPage() {
     }, 100)
   }
 
+  // Store selected expiry in localStorage for gann-strategy-live page
+  useEffect(() => {
+    if (selectedExpiry) {
+      localStorage.setItem('selectedExpiry', selectedExpiry)
+    }
+  }, [selectedExpiry])
+
   // Fetch live market data and expiry options (only when authenticated)
   useEffect(() => {
     if (isAuthenticated) {
