@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown, ChevronUp } from "lucide-react"
+import { TrendingUp, TrendingDown, Calculator, ArrowLeft, Activity, ZoomIn, ZoomOut, BarChart3, RefreshCw, Zap, Info, ChevronDown } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from "recharts"
 import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData, fetchTrendingOIData, TrendingOIData, fetchFutureExpiryData, formatNumber } from "@/lib/api"
@@ -44,7 +45,6 @@ export default function GannStrategyLivePage() {
   const [showLevelPrices, setShowLevelPrices] = useState(true) // Show prices in chart labels
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
   const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
-  const [chartControlsCollapsed, setChartControlsCollapsed] = useState(false) // Chart controls collapsed state
 
   // OI Analytics state
   const [oiInterval, setOiInterval] = useState('3') // 1, 3, 5 minutes
@@ -625,8 +625,8 @@ export default function GannStrategyLivePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
+      {/* Enhanced Header with Controls */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -644,42 +644,427 @@ export default function GannStrategyLivePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-              <Badge variant="outline" className="text-xs px-2 py-1">
-                <div className={`w-2 h-2 rounded-full mr-1 ${autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
-                <span className="hidden sm:inline">{autoRefresh ? 'Auto Refresh' : 'Manual'}</span>
-                <span className="sm:hidden">{autoRefresh ? 'Auto' : 'Manual'}</span>
-              </Badge>
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Mobile: Combined Controls Dropdown */}
+              <div className="sm:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-xs px-2 py-1 h-7">
+                      <BarChart3 className="w-3 h-3 mr-1" />
+                      <span>Controls</span>
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80 max-h-[80vh] overflow-y-auto">
+                    <DropdownMenuLabel>All Controls</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+
+                    {/* Chart Controls Section */}
+                    <div className="p-3 border-b">
+                      <div className="font-medium text-sm mb-3 text-blue-600">📊 Chart Controls</div>
+
+                      {/* View Mode */}
+                      <div className="mb-3">
+                        <Label className="text-xs font-medium mb-2 block">View Mode:</Label>
+                        <div className="flex gap-1">
+                          <Button
+                            variant={chartMode === 'full' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setChartMode('full')}
+                            className="h-7 text-xs flex-1"
+                          >
+                            <ZoomOut className="w-3 h-3 mr-1" />
+                            Full
+                          </Button>
+                          <Button
+                            variant={chartMode === 'zoomed' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setChartMode('zoomed')}
+                            className="h-7 text-xs flex-1"
+                          >
+                            <ZoomIn className="w-3 h-3 mr-1" />
+                            Zoom
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Show Level Prices */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium">Show Level Prices:</Label>
+                          <Button
+                            variant={showLevelPrices ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowLevelPrices(!showLevelPrices)}
+                            className="text-xs h-6 px-2"
+                          >
+                            {showLevelPrices ? "On" : "Off"}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Time Range */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-xs font-medium">Time Range:</Label>
+                          <span className="text-xs text-muted-foreground">
+                            {timeFilter[0]}% - {timeFilter[1]}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={timeFilter}
+                          onValueChange={(value) => setTimeFilter(value as [number, number])}
+                          max={100}
+                          min={0}
+                          step={5}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>9:15 AM</span>
+                          <span>3:30 PM</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* OI Analytics Controls Section */}
+                    <div className="p-3 border-b">
+                      <div className="font-medium text-sm mb-3 text-green-600">📈 OI Analytics</div>
+
+                      {/* Interval Selector */}
+                      <div className="mb-3">
+                        <Label className="text-xs font-medium mb-2 block">Interval:</Label>
+                        <Select value={oiInterval} onValueChange={setOiInterval}>
+                          <SelectTrigger className="w-full h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 minute</SelectItem>
+                            <SelectItem value="3">3 minutes</SelectItem>
+                            <SelectItem value="5">5 minutes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Expiry Date Selector */}
+                      <div className="mb-3">
+                        <Label className="text-xs font-medium mb-2 block">Expiry Date:</Label>
+                        <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                          <SelectTrigger className="w-full h-8">
+                            <SelectValue placeholder="Select expiry date" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {expiryOptions.map((expiry) => (
+                              <SelectItem key={expiry.expiry} value={expiry.expiry}>
+                                {new Date(expiry.expiry).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Strike Range Controls */}
+                      <div className="mb-3">
+                        <Label className="text-xs font-medium mb-2 block">Strike Range:</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Start</Label>
+                            <Input
+                              type="number"
+                              value={defaultStartStrike}
+                              onChange={(e) => setDefaultStartStrike(e.target.value)}
+                              placeholder="24650"
+                              className="w-full h-7 text-xs"
+                              min="20000"
+                              max="30000"
+                              step="50"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">End</Label>
+                            <Input
+                              type="number"
+                              value={defaultEndStrike}
+                              onChange={(e) => setDefaultEndStrike(e.target.value)}
+                              placeholder="25600"
+                              className="w-full h-7 text-xs"
+                              min="20000"
+                              max="30000"
+                              step="50"
+                            />
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground text-center mt-2">
+                          {Math.floor((parseInt(defaultEndStrike) - parseInt(defaultStartStrike)) / 50) + 1} strikes
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Refresh Controls Section */}
+                    <div className="p-3">
+                      <div className="font-medium text-sm mb-3 text-purple-600">🔄 Refresh Controls</div>
+
+                      {/* Status */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs">Auto Refresh:</span>
+                        <Badge variant="outline" className="text-xs">
+                          <div className={`w-2 h-2 rounded-full mr-1 ${autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+                          {autoRefresh ? 'On' : 'Off'}
+                        </Badge>
+                      </div>
+
+                      {/* Last Refresh */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs">Last Update:</span>
+                        <span className="text-xs text-muted-foreground">
+                          {lastRefresh.toLocaleTimeString().split(' ')[1]}
+                        </span>
+                      </div>
+
+                      {/* OI Loading Status */}
+                      {oiLoading && (
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-blue-600">OI Loading...</span>
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleManualRefresh}
+                          disabled={isRefreshing || oiLoading}
+                          className="flex-1 text-xs h-8"
+                        >
+                          <RefreshCw className={`w-3 h-3 mr-1 ${(isRefreshing || oiLoading) ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAutoRefresh(!autoRefresh)}
+                          className="flex-1 text-xs h-8"
+                        >
+                          <Activity className="w-3 h-3 mr-1" />
+                          {autoRefresh ? 'Disable' : 'Enable'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Desktop: Separate Controls */}
+              <div className="hidden sm:flex sm:items-center sm:gap-2">
+                {/* Chart Controls Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-xs px-2 py-1 h-7">
+                      <BarChart3 className="w-3 h-3 mr-1" />
+                      <span className="ml-1">Chart</span>
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel>Chart Controls</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+
+                    {/* View Mode */}
+                    <div className="p-2 space-y-2">
+                      <Label className="text-xs font-medium">View Mode:</Label>
+                      <div className="flex gap-1">
+                        <Button
+                          variant={chartMode === 'full' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setChartMode('full')}
+                          className="h-7 text-xs flex-1"
+                        >
+                          <ZoomOut className="w-3 h-3 mr-1" />
+                          Full
+                        </Button>
+                        <Button
+                          variant={chartMode === 'zoomed' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setChartMode('zoomed')}
+                          className="h-7 text-xs flex-1"
+                        >
+                          <ZoomIn className="w-3 h-3 mr-1" />
+                          Zoom
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Show Level Prices */}
+                    <div className="p-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Show Level Prices:</Label>
+                        <Button
+                          variant={showLevelPrices ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setShowLevelPrices(!showLevelPrices)}
+                          className="text-xs h-6 px-2"
+                        >
+                          {showLevelPrices ? "On" : "Off"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Time Range */}
+                    <div className="p-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Time Range:</Label>
+                        <span className="text-xs text-muted-foreground">
+                          {timeFilter[0]}% - {timeFilter[1]}%
+                        </span>
+                      </div>
+                      <Slider
+                        value={timeFilter}
+                        onValueChange={(value) => setTimeFilter(value as [number, number])}
+                        max={100}
+                        min={0}
+                        step={5}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>9:15 AM</span>
+                        <span>3:30 PM</span>
+                      </div>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* OI Analytics Controls Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-xs px-2 py-1 h-7">
+                      <Activity className="w-3 h-3 mr-1" />
+                      <span className="ml-1">OI Analytics</span>
+                      <ChevronDown className="w-3 h-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72">
+                    <DropdownMenuLabel>OI Analytics Controls</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+
+                    {/* Interval Selector */}
+                    <div className="p-2 space-y-2">
+                      <Label className="text-xs font-medium">Interval:</Label>
+                      <Select value={oiInterval} onValueChange={setOiInterval}>
+                        <SelectTrigger className="w-full h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 minute</SelectItem>
+                          <SelectItem value="3">3 minutes</SelectItem>
+                          <SelectItem value="5">5 minutes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Expiry Date Selector */}
+                    <div className="p-2 space-y-2">
+                      <Label className="text-xs font-medium">Expiry Date:</Label>
+                      <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                        <SelectTrigger className="w-full h-8">
+                          <SelectValue placeholder="Select expiry date" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {expiryOptions.map((expiry) => (
+                            <SelectItem key={expiry.expiry} value={expiry.expiry}>
+                              {new Date(expiry.expiry).toLocaleDateString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric'
+                              })}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Strike Range Controls */}
+                    <div className="p-2 space-y-2">
+                      <Label className="text-xs font-medium">Strike Range:</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Start</Label>
+                          <Input
+                            type="number"
+                            value={defaultStartStrike}
+                            onChange={(e) => setDefaultStartStrike(e.target.value)}
+                            placeholder="24650"
+                            className="w-full h-7 text-xs"
+                            min="20000"
+                            max="30000"
+                            step="50"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">End</Label>
+                          <Input
+                            type="number"
+                            value={defaultEndStrike}
+                            onChange={(e) => setDefaultEndStrike(e.target.value)}
+                            placeholder="25600"
+                            className="w-full h-7 text-xs"
+                            min="20000"
+                            max="30000"
+                            step="50"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground text-center">
+                        {Math.floor((parseInt(defaultEndStrike) - parseInt(defaultStartStrike)) / 50) + 1} strikes
+                      </div>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Status & Refresh Controls */}
+                <Badge variant="outline" className="text-xs px-2 py-1">
+                  <div className={`w-2 h-2 rounded-full mr-1 ${autoRefresh ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`} />
+                  {autoRefresh ? 'Auto Refresh' : 'Manual'}
+                </Badge>
+
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  <span className="hidden sm:inline">Last: {lastRefresh.toLocaleTimeString()}</span>
-                  <span className="sm:hidden">{lastRefresh.toLocaleTimeString().split(' ')[1]}</span>
+                  Last: {lastRefresh.toLocaleTimeString()}
                 </span>
+
                 {oiLoading && (
                   <div className="flex items-center gap-1 text-xs text-blue-600">
                     <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
                     <span>OI</span>
                   </div>
                 )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={isRefreshing || oiLoading}
-                className="text-xs px-2 py-1 h-7"
-              >
-                <RefreshCw className={`w-3 h-3 ${(isRefreshing || oiLoading) ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline ml-1">Refresh</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className="text-xs px-2 py-1 h-7"
-              >
-                <Activity className="w-3 h-3" />
-                <span className="hidden sm:inline ml-1">{autoRefresh ? 'Disable' : 'Enable'} Auto</span>
-                <span className="sm:hidden ml-1">{autoRefresh ? 'Off' : 'On'}</span>
-              </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing || oiLoading}
+                  className="text-xs px-2 py-1 h-7"
+                >
+                  <RefreshCw className={`w-3 h-3 ${(isRefreshing || oiLoading) ? 'animate-spin' : ''}`} />
+                  <span className="ml-1">Refresh</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className="text-xs px-2 py-1 h-7"
+                >
+                  <Activity className="w-3 h-3" />
+                  <span className="ml-1">{autoRefresh ? 'Disable' : 'Enable'} Auto</span>
+                </Button>
+              </div>
+
+              {/* Close Button - Always Visible */}
               <Button
                 variant="outline"
                 size="sm"
@@ -698,171 +1083,6 @@ export default function GannStrategyLivePage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Chart Section - Takes 2/3 on large screens */}
           <div className="xl:col-span-2 space-y-6">
-            {/* Chart Controls */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4" />
-                    Chart & OI Analytics Controls
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setChartControlsCollapsed(!chartControlsCollapsed)}
-                    className="h-6 w-6 p-0 hover:bg-muted"
-                  >
-                    {chartControlsCollapsed ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4" />
-                    )}
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              {!chartControlsCollapsed && (
-                <CardContent className="space-y-4">
-                {/* View Mode Toggle */}
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">View Mode:</Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant={chartMode === 'full' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartMode('full')}
-                      className="h-8"
-                    >
-                      <ZoomOut className="w-3 h-3 mr-1" />
-                      Full View
-                    </Button>
-                    <Button
-                      variant={chartMode === 'zoomed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setChartMode('zoomed')}
-                      className="h-8"
-                    >
-                      <ZoomIn className="w-3 h-3 mr-1" />
-                      Zoomed
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Level Price Display Toggle */}
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Show Level Prices:</Label>
-                  <Button
-                    variant={showLevelPrices ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowLevelPrices(!showLevelPrices)}
-                    className="text-xs"
-                  >
-                    {showLevelPrices ? "On" : "Off"}
-                  </Button>
-                </div>
-
-                {/* Time Range Slider */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Time Range:</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {timeFilter[0]}% - {timeFilter[1]}%
-                    </span>
-                  </div>
-                  <Slider
-                    value={timeFilter}
-                    onValueChange={(value) => setTimeFilter(value as [number, number])}
-                    max={100}
-                    min={0}
-                    step={5}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>9:15 AM</span>
-                    <span>3:30 PM</span>
-                  </div>
-                </div>
-
-                {/* OI Analytics Controls */}
-                <div className="space-y-4 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">OI Analytics:</Label>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">Interval:</Label>
-                      <Select value={oiInterval} onValueChange={setOiInterval}>
-                        <SelectTrigger className="w-20 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1m</SelectItem>
-                          <SelectItem value="3">3m</SelectItem>
-                          <SelectItem value="5">5m</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Expiry Date Selector */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Expiry Date:</Label>
-                    <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
-                      <SelectTrigger className="w-full h-8">
-                        <SelectValue placeholder="Select expiry date" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {expiryOptions.map((expiry) => (
-                          <SelectItem key={expiry.expiry} value={expiry.expiry}>
-                            {new Date(expiry.expiry).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-
-                  {/* Default Strike Range Controls */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Default Strike Range:</Label>
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <Label className="text-xs text-muted-foreground">Start</Label>
-                          <Input
-                            type="number"
-                            value={defaultStartStrike}
-                            onChange={(e) => setDefaultStartStrike(e.target.value)}
-                            placeholder="24650"
-                            className="w-full h-8"
-                            min="20000"
-                            max="30000"
-                            step="50"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Label className="text-xs text-muted-foreground">End</Label>
-                          <Input
-                            type="number"
-                            value={defaultEndStrike}
-                            onChange={(e) => setDefaultEndStrike(e.target.value)}
-                            placeholder="25600"
-                            className="w-full h-8"
-                            min="20000"
-                            max="30000"
-                            step="50"
-                          />
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Range: {defaultStartStrike} - {defaultEndStrike} ({Math.floor((parseInt(defaultEndStrike) - parseInt(defaultStartStrike)) / 50) + 1} strikes)
-                      </div>
-                    </div>
-
-                </div>
-                </CardContent>
-              )}
-            </Card>
 
             {/* Live Chart */}
             <Card>
@@ -873,7 +1093,7 @@ export default function GannStrategyLivePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                  <div className={`${chartControlsCollapsed ? 'h-[480px]' : 'h-96'} w-full relative transition-all duration-300`}>
+                  <div className="h-[500px] w-full relative transition-all duration-300">
                   {chartData.length > 0 ? (
                     <>
                     <ResponsiveContainer width="100%" height="100%">
