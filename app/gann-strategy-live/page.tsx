@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSepar
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine, Tooltip, ComposedChart, BarChart, Bar, PieChart, Pie, Cell, CartesianGrid } from "recharts"
 import { Slider } from "@/components/ui/slider"
 import { fetchMaxPainIntradayChart, MaxPainIntradayData, fetchTrendingOIData, TrendingOIData, fetchFutureExpiryData, formatNumber } from "@/lib/api"
+import { calculateGannLevels } from "@/lib/utils"
 
 // Define the strategy data interface
 interface GannLevel {
@@ -24,10 +25,20 @@ interface GannLevels {
   resistances: GannLevel[]
 }
 
+interface RecommendationData {
+  buyAbove: number
+  buyTargets: number[]
+  buyStoploss: number
+  sellBelow: number
+  sellTargets: number[]
+  sellStoploss: number
+}
+
 interface StrategyData {
   basePrice: string
   currentNiftyPrice: number
   gannLevels: GannLevels
+  recommendation: RecommendationData
   timestamp: string
 }
 
@@ -46,6 +57,16 @@ export default function GannStrategyLivePage() {
   const [hoveredLevel, setHoveredLevel] = useState<{type: 'support' | 'resistance', level: number, value: number} | null>(null)
   const [showStrategyInfo, setShowStrategyInfo] = useState(false) // Show strategy explanation
   const [gannLevelsCollapsed, setGannLevelsCollapsed] = useState(false) // Gann Levels collapsed state
+  const [chartLevelView, setChartLevelView] = useState<'gann' | 'recommendation' | 'combined'>('gann') // Chart level view type
+  const [showStopLoss, setShowStopLoss] = useState(true) // Show stop loss lines in recommendation view
+  const [showCETargets, setShowCETargets] = useState(true) // Show CE targets in levels panel
+  const [showPETargets, setShowPETargets] = useState(true) // Show PE targets in levels panel
+  const [levelsToShow, setLevelsToShow] = useState(5) // Number of levels to show
+
+  // Update levelsToShow when chartMode changes - always show all 5 levels
+  useEffect(() => {
+    setLevelsToShow(5) // Always show all 5 levels, zoom just changes the view scale
+  }, [chartMode])
 
   // OI Analytics state
   const [oiInterval, setOiInterval] = useState('3') // 1, 3, 5 minutes
@@ -235,6 +256,16 @@ export default function GannStrategyLivePage() {
     if (data) {
       try {
         const parsedData = JSON.parse(data)
+        // Ensure recommendation data exists, if not, calculate it
+        if (!parsedData.recommendation && parsedData.basePrice) {
+          const basePrice = parseFloat(parsedData.basePrice)
+          if (!isNaN(basePrice)) {
+            const levelsData = calculateGannLevels(basePrice)
+            parsedData.recommendation = levelsData.recommendation
+            // Update localStorage with the new data
+            localStorage.setItem('gannStrategyData', JSON.stringify(parsedData))
+          }
+        }
         setStrategyData(parsedData)
       } catch (err) {
         setError('Failed to load strategy data')
@@ -720,6 +751,54 @@ export default function GannStrategyLivePage() {
                         </div>
                       </div>
 
+                      {/* Level View Mode */}
+                      <div className="mb-3">
+                        <Label className="text-xs font-medium mb-2 block">Level View:</Label>
+                        <div className="grid grid-cols-1 gap-1">
+                          <Button
+                            variant={chartLevelView === 'gann' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setChartLevelView('gann')}
+                            className="h-7 text-xs"
+                          >
+                            Gann Levels
+                          </Button>
+                          <Button
+                            variant={chartLevelView === 'recommendation' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setChartLevelView('recommendation')}
+                            className="h-7 text-xs"
+                          >
+                            CE/PE Targets
+                          </Button>
+                          <Button
+                            variant={chartLevelView === 'combined' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setChartLevelView('combined')}
+                            className="h-7 text-xs"
+                          >
+                            Combined
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Stop Loss Toggle - Only show when recommendation view is selected */}
+                      {chartLevelView === 'recommendation' && (
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-medium">Show Stop Loss:</Label>
+                            <Button
+                              variant={showStopLoss ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setShowStopLoss(!showStopLoss)}
+                              className="text-xs h-6 px-2"
+                            >
+                              {showStopLoss ? "On" : "Off"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Show Level Prices */}
                       <div className="mb-3">
                         <div className="flex items-center justify-between">
@@ -931,6 +1010,54 @@ export default function GannStrategyLivePage() {
                       </div>
                     </div>
 
+                    {/* Level View Mode */}
+                    <div className="p-2 space-y-2">
+                      <Label className="text-xs font-medium">Level View:</Label>
+                      <div className="grid grid-cols-1 gap-1">
+                        <Button
+                          variant={chartLevelView === 'gann' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setChartLevelView('gann')}
+                          className="h-7 text-xs"
+                        >
+                          Gann Levels
+                        </Button>
+                        <Button
+                          variant={chartLevelView === 'recommendation' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setChartLevelView('recommendation')}
+                          className="h-7 text-xs"
+                        >
+                          CE/PE Targets
+                        </Button>
+                        <Button
+                          variant={chartLevelView === 'combined' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setChartLevelView('combined')}
+                          className="h-7 text-xs"
+                        >
+                          Combined
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Stop Loss Toggle - Only show when recommendation view is selected */}
+                    {chartLevelView === 'recommendation' && (
+                      <div className="p-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium">Show Stop Loss:</Label>
+                          <Button
+                            variant={showStopLoss ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowStopLoss(!showStopLoss)}
+                            className="text-xs h-6 px-2"
+                          >
+                            {showStopLoss ? "On" : "Off"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Show Level Prices */}
                     <div className="p-2">
                       <div className="flex items-center justify-between">
@@ -1125,7 +1252,7 @@ export default function GannStrategyLivePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                  <div className="h-[500px] w-full relative transition-all duration-300">
+                  <div className="h-[500px] w-full relative transition-all duration-300" key={`chart-${levelsToShow}`}>
                   {chartData.length > 0 ? (
                     <>
                     <ResponsiveContainer width="100%" height="100%">
@@ -1172,49 +1299,228 @@ export default function GannStrategyLivePage() {
                           activeDot={{ r: 4, fill: '#2563eb' }}
                         />
 
-                        {/* Support Levels - Horizontal Lines */}
-                        {strategyData.gannLevels.supports.map((level: any) => (
-                          <ReferenceLine
-                            key={`support-${level.order}`}
-                            y={level.value}
-                            stroke="#16a34a"
-                            strokeDasharray="5 5"
-                              strokeWidth={2}
-                              strokeOpacity={0.8}
-                              onMouseEnter={() => setHoveredLevel({ type: 'support', level: level.order, value: level.value })}
-                              onMouseLeave={() => setHoveredLevel(null)}
-                            label={{
-                                value: showLevelPrices ? `S${level.order}: ${formatNumber(level.value)}` : `S${level.order}`,
-                              position: "insideTopRight",
-                              fill: "#16a34a",
-                                fontSize: 11,
-                                fontWeight: "bold",
-                                style: { cursor: 'pointer' }
-                            }}
-                          />
-                        ))}
+                        {/* Render levels based on chartLevelView */}
+                        {chartLevelView === 'gann' && (
+                          <>
+                            {/* Support Levels - Horizontal Lines */}
+                            {strategyData.gannLevels.supports.slice(0, levelsToShow).map((level: any) => (
+                              <ReferenceLine
+                                key={`gann-support-${level.order}`}
+                                y={level.value}
+                                stroke="#16a34a"
+                                strokeDasharray="5 5"
+                                  strokeWidth={2}
+                                  strokeOpacity={0.8}
+                                  onMouseEnter={() => setHoveredLevel({ type: 'support', level: level.order, value: level.value })}
+                                  onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                    value: showLevelPrices ? `S${level.order}: ${formatNumber(level.value)}` : `S${level.order}`,
+                                  position: "insideTopRight",
+                                  fill: "#16a34a",
+                                    fontSize: 9,
+                                    fontWeight: "bold",
+                                    style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
 
-                        {/* Resistance Levels - Horizontal Lines */}
-                        {strategyData.gannLevels.resistances.map((level: any) => (
-                          <ReferenceLine
-                            key={`resistance-${level.order}`}
-                            y={level.value}
-                            stroke="#dc2626"
-                            strokeDasharray="5 5"
-                              strokeWidth={2}
-                              strokeOpacity={0.8}
-                              onMouseEnter={() => setHoveredLevel({ type: 'resistance', level: level.order, value: level.value })}
-                              onMouseLeave={() => setHoveredLevel(null)}
-                            label={{
-                                value: showLevelPrices ? `R${level.order}: ${formatNumber(level.value)}` : `R${level.order}`,
-                              position: "insideTopLeft",
-                              fill: "#dc2626",
-                                fontSize: 11,
-                                fontWeight: "bold",
-                                style: { cursor: 'pointer' }
-                            }}
-                          />
-                        ))}
+                            {/* Resistance Levels - Horizontal Lines */}
+                            {strategyData.gannLevels.resistances.slice(0, levelsToShow).map((level: any) => (
+                              <ReferenceLine
+                                key={`gann-resistance-${level.order}`}
+                                y={level.value}
+                                stroke="#dc2626"
+                                strokeDasharray="5 5"
+                                  strokeWidth={2}
+                                  strokeOpacity={0.8}
+                                  onMouseEnter={() => setHoveredLevel({ type: 'resistance', level: level.order, value: level.value })}
+                                  onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                    value: showLevelPrices ? `R${level.order}: ${formatNumber(level.value)}` : `R${level.order}`,
+                                  position: "insideTopLeft",
+                                  fill: "#dc2626",
+                                    fontSize: 9,
+                                    fontWeight: "bold",
+                                    style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+                          </>
+                        )}
+
+                        {chartLevelView === 'recommendation' && strategyData.recommendation && (
+                          <>
+                            {/* CE Buy Targets */}
+                            {strategyData.recommendation.buyTargets.slice(0, levelsToShow).map((target: number, index: number) => (
+                              <ReferenceLine
+                                key={`ce-target-${index + 1}`}
+                                y={target}
+                                stroke="#22c55e"
+                                strokeDasharray="8 4"
+                                strokeWidth={2}
+                                strokeOpacity={0.9}
+                                onMouseEnter={() => setHoveredLevel({ type: 'support', level: index + 1, value: target })}
+                                onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                  value: showLevelPrices ? `CE T${index + 1}: ${formatNumber(target)}` : `CE T${index + 1}`,
+                                  position: "insideTopRight",
+                                  fill: "#22c55e",
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+
+                            {/* CE Stop Loss */}
+                            {showStopLoss && (
+                              <ReferenceLine
+                                key="ce-stoploss"
+                                y={strategyData.recommendation.buyStoploss}
+                                stroke="#dc2626"
+                                strokeDasharray="2 2"
+                                strokeWidth={3}
+                                strokeOpacity={0.9}
+                                onMouseEnter={() => setHoveredLevel({ type: 'resistance', level: 0, value: strategyData.recommendation.buyStoploss })}
+                                onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                  value: showLevelPrices ? `CE SL: ${formatNumber(strategyData.recommendation.buyStoploss)}` : `CE SL`,
+                                  position: "insideTopLeft",
+                                  fill: "#dc2626",
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            )}
+
+                            {/* PE Buy Targets */}
+                            {strategyData.recommendation.sellTargets.slice(0, levelsToShow).map((target: number, index: number) => (
+                              <ReferenceLine
+                                key={`pe-target-${index + 1}`}
+                                y={target}
+                                stroke="#ef4444"
+                                strokeDasharray="8 4"
+                                strokeWidth={2}
+                                strokeOpacity={0.9}
+                                onMouseEnter={() => setHoveredLevel({ type: 'resistance', level: index + 1, value: target })}
+                                onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                  value: showLevelPrices ? `PE T${index + 1}: ${formatNumber(target)}` : `PE T${index + 1}`,
+                                  position: "insideTopLeft",
+                                  fill: "#ef4444",
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+
+                            {/* PE Stop Loss */}
+                            {showStopLoss && (
+                              <ReferenceLine
+                                key="pe-stoploss"
+                                y={strategyData.recommendation.sellStoploss}
+                                stroke="#16a34a"
+                                strokeDasharray="2 2"
+                                strokeWidth={3}
+                                strokeOpacity={0.9}
+                                onMouseEnter={() => setHoveredLevel({ type: 'support', level: 0, value: strategyData.recommendation.sellStoploss })}
+                                onMouseLeave={() => setHoveredLevel(null)}
+                                label={{
+                                  value: showLevelPrices ? `PE SL: ${formatNumber(strategyData.recommendation.sellStoploss)}` : `PE SL`,
+                                  position: "insideTopRight",
+                                  fill: "#16a34a",
+                                  fontSize: 9,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+
+                        {chartLevelView === 'combined' && strategyData.recommendation && (
+                          <>
+                            {/* Gann Support Levels - Solid lines */}
+                            {strategyData.gannLevels.supports.slice(0, levelsToShow).map((level: any, index: number) => (
+                              <ReferenceLine
+                                key={`gann-support-${level.order}`}
+                                y={level.value}
+                                stroke="#0ea5e9"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.8}
+                                label={{
+                                  value: showLevelPrices ? `S${level.order}: ${formatNumber(level.value)}` : `S${level.order}`,
+                                  position: index % 2 === 0 ? "insideTopRight" : "insideBottomRight",
+                                  fill: "#0ea5e9",
+                                  fontSize: 8,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+
+                            {/* CE Buy Targets - Dashed lines */}
+                            {strategyData.recommendation.buyTargets.slice(0, levelsToShow).map((target: number, index: number) => (
+                              <ReferenceLine
+                                key={`ce-target-${index + 1}`}
+                                y={target}
+                                stroke="#10b981"
+                                strokeDasharray="8 4"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.8}
+                                label={{
+                                  value: showLevelPrices ? `CE${index + 1}: ${formatNumber(target)}` : `CE${index + 1}`,
+                                  position: index % 2 === 0 ? "insideBottomRight" : "insideTopRight",
+                                  fill: "#10b981",
+                                  fontSize: 8,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+
+                            {/* Gann Resistance Levels - Solid lines */}
+                            {strategyData.gannLevels.resistances.slice(0, levelsToShow).map((level: any, index: number) => (
+                              <ReferenceLine
+                                key={`gann-resistance-${level.order}`}
+                                y={level.value}
+                                stroke="#f59e0b"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.8}
+                                label={{
+                                  value: showLevelPrices ? `R${level.order}: ${formatNumber(level.value)}` : `R${level.order}`,
+                                  position: index % 2 === 0 ? "insideTopLeft" : "insideBottomLeft",
+                                  fill: "#f59e0b",
+                                  fontSize: 8,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+
+                            {/* PE Buy Targets - Dotted lines */}
+                            {strategyData.recommendation.sellTargets.slice(0, levelsToShow).map((target: number, index: number) => (
+                              <ReferenceLine
+                                key={`pe-target-${index + 1}`}
+                                y={target}
+                                stroke="#ef4444"
+                                strokeDasharray="2 2"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.8}
+                                label={{
+                                  value: showLevelPrices ? `PE${index + 1}: ${formatNumber(target)}` : `PE${index + 1}`,
+                                  position: index % 2 === 0 ? "insideBottomLeft" : "insideTopLeft",
+                                  fill: "#ef4444",
+                                  fontSize: 8,
+                                  fontWeight: "bold",
+                                  style: { cursor: 'pointer' }
+                                }}
+                              />
+                            ))}
+                          </>
+                        )}
 
                       </ComposedChart>
                     </ResponsiveContainer>
@@ -1254,14 +1560,58 @@ export default function GannStrategyLivePage() {
                     <div className="w-4 h-0.5 bg-blue-600"></div>
                     <span>NIFTY Price Movement</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-0.5 bg-green-600"></div>
-                    <span>Gann Support Levels</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-0.5 bg-red-600"></div>
-                    <span>Gann Resistance Levels</span>
-                  </div>
+                  {chartLevelView === 'gann' && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-green-600" style={{ borderTop: '1px dashed #16a34a' }}></div>
+                        <span>Gann Support Levels</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-red-600" style={{ borderTop: '1px dashed #dc2626' }}></div>
+                        <span>Gann Resistance Levels</span>
+                      </div>
+                    </>
+                  )}
+                  {chartLevelView === 'recommendation' && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-green-600" style={{ borderTop: '1px dashed #22c55e' }}></div>
+                        <span>CE Buy Targets</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-red-600" style={{ borderTop: '1px dotted #dc2626' }}></div>
+                        <span>CE Stop Loss</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-red-400" style={{ borderTop: '1px dashed #ef4444' }}></div>
+                        <span>PE Sell Targets</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-green-600" style={{ borderTop: '1px dotted #16a34a' }}></div>
+                        <span>PE Stop Loss</span>
+                      </div>
+                    </>
+                  )}
+                  {chartLevelView === 'combined' && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-sky-500"></div>
+                        <span>Gann Support</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-emerald-500" style={{ borderTop: '1px dashed #10b981' }}></div>
+                        <span>CE Buy Targets</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-amber-500"></div>
+                        <span>Gann Resistance</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-0.5 bg-red-500" style={{ borderTop: '1px dotted #ef4444' }}></div>
+                        <span>PE Buy Targets</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1361,13 +1711,13 @@ export default function GannStrategyLivePage() {
 
           {/* Levels Panel - Takes 1/3 on large screens */}
           <div className="space-y-6">
-            {/* Gann Levels */}
+            {/* Gann Levels & Recommendations */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calculator className="w-4 h-4" />
-                    Gann Levels
+                    Levels & Targets
                   </div>
                   <Button
                     variant="ghost"
@@ -1385,11 +1735,11 @@ export default function GannStrategyLivePage() {
               </CardHeader>
               {!gannLevelsCollapsed && (
                 <CardContent className="space-y-4">
-                  {/* Resistance Levels */}
+                  {/* Gann Resistance Levels */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingUp className="w-4 h-4 text-red-600" />
-                      <span className="text-sm font-medium text-red-600">Resistance</span>
+                      <span className="text-sm font-medium text-red-600">Gann Resistance</span>
                     </div>
                     <div className="space-y-2">
                       {strategyData.gannLevels.resistances.map((level: any) => (
@@ -1403,11 +1753,95 @@ export default function GannStrategyLivePage() {
                     </div>
                   </div>
 
-                  {/* Support Levels */}
+                  {/* CE Buy Targets */}
+                  {strategyData.recommendation && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">CE Buy Targets</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowCETargets(!showCETargets)}
+                          className="h-6 w-6 p-0 hover:bg-muted"
+                        >
+                          {showCETargets ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {showCETargets && (
+                        <div className="space-y-2">
+                          {strategyData.recommendation.buyTargets.map((target: number, index: number) => (
+                            <div key={index} className="flex items-center justify-between py-1">
+                              <span className="text-sm text-green-700">CE T{index + 1}:</span>
+                              <span className="font-mono text-sm font-semibold text-green-800">
+                                {formatNumber(target)}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between py-1 border-t border-green-200">
+                            <span className="text-sm text-green-700 font-medium">CE SL:</span>
+                            <span className="font-mono text-sm font-semibold text-red-600">
+                              {formatNumber(strategyData.recommendation.buyStoploss)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* PE Buy Targets */}
+                  {strategyData.recommendation && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <TrendingDown className="w-4 h-4 text-red-600" />
+                          <span className="text-sm font-medium text-red-600">PE Buy Targets</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowPETargets(!showPETargets)}
+                          className="h-6 w-6 p-0 hover:bg-muted"
+                        >
+                          {showPETargets ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {showPETargets && (
+                        <div className="space-y-2">
+                          {strategyData.recommendation.sellTargets.map((target: number, index: number) => (
+                            <div key={index} className="flex items-center justify-between py-1">
+                              <span className="text-sm text-red-700">PE T{index + 1}:</span>
+                              <span className="font-mono text-sm font-semibold text-red-800">
+                                {formatNumber(target)}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between py-1 border-t border-red-200">
+                            <span className="text-sm text-red-700 font-medium">PE SL:</span>
+                            <span className="font-mono text-sm font-semibold text-green-600">
+                              {formatNumber(strategyData.recommendation.sellStoploss)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Gann Support Levels */}
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <TrendingDown className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-600">Support</span>
+                      <span className="text-sm font-medium text-green-600">Gann Support</span>
                     </div>
                     <div className="space-y-2">
                       {strategyData.gannLevels.supports.map((level: any) => (
