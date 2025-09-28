@@ -266,6 +266,9 @@ export default function GannStrategyLivePage() {
   useEffect(() => {
     if (!autoRefresh) return
 
+    // Track the latest timeout ID for proper cleanup
+    const timeoutRef = { current: null as NodeJS.Timeout | null }
+
     const scheduleNextRefresh = () => {
       const now = new Date()
       const seconds = now.getSeconds()
@@ -278,7 +281,7 @@ export default function GannStrategyLivePage() {
       const timeoutId = setTimeout(async () => {
         if (isRefreshing || oiLoading) {
           // If still loading, schedule for next minute
-          scheduleNextRefresh()
+          timeoutRef.current = scheduleNextRefresh()
           return
         }
 
@@ -289,11 +292,11 @@ export default function GannStrategyLivePage() {
           ])
 
           // Schedule next refresh at the following minute boundary
-          scheduleNextRefresh()
+          timeoutRef.current = scheduleNextRefresh()
         } catch (error) {
           console.error('Error during auto-refresh:', error)
           // Schedule next refresh even on error
-          scheduleNextRefresh()
+          timeoutRef.current = scheduleNextRefresh()
         }
       }, msUntilNextMinute)
 
@@ -301,9 +304,13 @@ export default function GannStrategyLivePage() {
     }
 
     // Start the first refresh cycle
-    const timeoutId = scheduleNextRefresh()
+    timeoutRef.current = scheduleNextRefresh()
 
-    return () => clearTimeout(timeoutId)
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
   }, [autoRefresh, fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
 
   // Initialize expiry options on component mount
