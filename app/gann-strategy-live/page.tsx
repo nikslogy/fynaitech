@@ -262,24 +262,48 @@ export default function GannStrategyLivePage() {
     initializeData()
   }, [fetchIntradayData, fetchOIData])
 
-  // Auto-refresh effect
+  // Auto-refresh effect - synchronized with minute boundaries
   useEffect(() => {
     if (!autoRefresh) return
 
-    const interval = setInterval(async () => {
-      if (isRefreshing || oiLoading) return // Skip if already refreshing
+    const scheduleNextRefresh = () => {
+      const now = new Date()
+      const seconds = now.getSeconds()
+      const milliseconds = now.getMilliseconds()
 
-      try {
-        await Promise.all([
-          fetchIntradayData(),
-          fetchOIData()
-        ])
-      } catch (error) {
-        console.error('Error during auto-refresh:', error)
-      }
-    }, 30000) // Refresh every 30 seconds
+      // Calculate milliseconds until next minute boundary
+      const msUntilNextMinute = (60 - seconds) * 1000 - milliseconds
 
-    return () => clearInterval(interval)
+      // Set timeout to refresh at the next minute boundary
+      const timeoutId = setTimeout(async () => {
+        if (isRefreshing || oiLoading) {
+          // If still loading, schedule for next minute
+          scheduleNextRefresh()
+          return
+        }
+
+        try {
+          await Promise.all([
+            fetchIntradayData(),
+            fetchOIData()
+          ])
+
+          // Schedule next refresh at the following minute boundary
+          scheduleNextRefresh()
+        } catch (error) {
+          console.error('Error during auto-refresh:', error)
+          // Schedule next refresh even on error
+          scheduleNextRefresh()
+        }
+      }, msUntilNextMinute)
+
+      return timeoutId
+    }
+
+    // Start the first refresh cycle
+    const timeoutId = scheduleNextRefresh()
+
+    return () => clearTimeout(timeoutId)
   }, [autoRefresh, fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
 
   // Initialize expiry options on component mount
