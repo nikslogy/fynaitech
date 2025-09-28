@@ -59,8 +59,7 @@ export default function GannStrategyLivePage() {
   const [gannLevelsCollapsed, setGannLevelsCollapsed] = useState(false) // Gann Levels collapsed state
   const [chartLevelView, setChartLevelView] = useState<'gann' | 'recommendation' | 'combined'>('gann') // Chart level view type
   const [showStopLoss, setShowStopLoss] = useState(true) // Show stop loss lines in recommendation view
-  const [showCETargets, setShowCETargets] = useState(true) // Show CE targets in levels panel
-  const [showPETargets, setShowPETargets] = useState(true) // Show PE targets in levels panel
+  const [showTargets, setShowTargets] = useState(true) // Show CE and PE targets in levels panel
   const [levelsToShow, setLevelsToShow] = useState(5) // Number of levels to show
 
   // Update levelsToShow when chartMode changes - always show all 5 levels
@@ -262,7 +261,11 @@ export default function GannStrategyLivePage() {
           if (!isNaN(basePrice)) {
             const levelsData = calculateGannLevels(basePrice)
             parsedData.recommendation = levelsData.recommendation
-            // Update localStorage with the new data
+            parsedData.gannLevels = {
+              supports: levelsData.supports,
+              resistances: levelsData.resistances
+            }
+            // Update localStorage with the fully migrated data
             localStorage.setItem('gannStrategyData', JSON.stringify(parsedData))
           }
         }
@@ -1719,18 +1722,18 @@ export default function GannStrategyLivePage() {
                     <Calculator className="w-4 h-4" />
                     Levels & Targets
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setGannLevelsCollapsed(!gannLevelsCollapsed)}
-                    className="h-6 w-6 p-0 hover:bg-muted"
-                  >
-                    {gannLevelsCollapsed ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronUp className="w-4 h-4" />
-                    )}
-                  </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setGannLevelsCollapsed(!gannLevelsCollapsed)}
+                          className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200 border border-transparent hover:border-blue-200 rounded-md"
+                        >
+                          {gannLevelsCollapsed ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4" />
+                          )}
+                        </Button>
                 </CardTitle>
               </CardHeader>
               {!gannLevelsCollapsed && (
@@ -1753,84 +1756,75 @@ export default function GannStrategyLivePage() {
                     </div>
                   </div>
 
-                  {/* CE Buy Targets */}
+                  {/* CE and PE Buy Targets */}
                   {strategyData.recommendation && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-600">CE Buy Targets</span>
+                          <Zap className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-600">Targets</span>
                         </div>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setShowCETargets(!showCETargets)}
-                          className="h-6 w-6 p-0 hover:bg-muted"
+                          onClick={() => setShowTargets(!showTargets)}
+                          className="h-6 w-6 p-0 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200 border border-transparent hover:border-blue-200 rounded-md"
                         >
-                          {showCETargets ? (
+                          {showTargets ? (
                             <ChevronUp className="w-4 h-4" />
                           ) : (
                             <ChevronDown className="w-4 h-4" />
                           )}
                         </Button>
                       </div>
-                      {showCETargets && (
-                        <div className="space-y-2">
-                          {strategyData.recommendation.buyTargets.map((target: number, index: number) => (
-                            <div key={index} className="flex items-center justify-between py-1">
-                              <span className="text-sm text-green-700">CE T{index + 1}:</span>
-                              <span className="font-mono text-sm font-semibold text-green-800">
-                                {formatNumber(target)}
-                              </span>
+                      {showTargets && (
+                        <div className="space-y-4">
+                          {/* CE Buy Targets */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="w-3 h-3 text-green-600" />
+                              <span className="text-xs font-medium text-green-600">CE Buy Targets</span>
                             </div>
-                          ))}
-                          <div className="flex items-center justify-between py-1 border-t border-green-200">
-                            <span className="text-sm text-green-700 font-medium">CE SL:</span>
-                            <span className="font-mono text-sm font-semibold text-red-600">
-                              {formatNumber(strategyData.recommendation.buyStoploss)}
-                            </span>
+                            <div className="space-y-1 ml-4">
+                              {strategyData.recommendation.buyTargets.map((target: number, index: number) => (
+                                <div key={index} className="flex items-center justify-between py-1">
+                                  <span className="text-xs text-green-700">CE T{index + 1}:</span>
+                                  <span className="font-mono text-xs font-semibold text-green-800">
+                                    {formatNumber(target)}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between py-1 border-t border-green-200">
+                                <span className="text-xs text-green-700 font-medium">CE SL:</span>
+                                <span className="font-mono text-xs font-semibold text-red-600">
+                                  {formatNumber(strategyData.recommendation.buyStoploss)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
-                  {/* PE Buy Targets */}
-                  {strategyData.recommendation && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <TrendingDown className="w-4 h-4 text-red-600" />
-                          <span className="text-sm font-medium text-red-600">PE Buy Targets</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowPETargets(!showPETargets)}
-                          className="h-6 w-6 p-0 hover:bg-muted"
-                        >
-                          {showPETargets ? (
-                            <ChevronUp className="w-4 h-4" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                      {showPETargets && (
-                        <div className="space-y-2">
-                          {strategyData.recommendation.sellTargets.map((target: number, index: number) => (
-                            <div key={index} className="flex items-center justify-between py-1">
-                              <span className="text-sm text-red-700">PE T{index + 1}:</span>
-                              <span className="font-mono text-sm font-semibold text-red-800">
-                                {formatNumber(target)}
-                              </span>
+                          {/* PE Buy Targets */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingDown className="w-3 h-3 text-red-600" />
+                              <span className="text-xs font-medium text-red-600">PE Buy Targets</span>
                             </div>
-                          ))}
-                          <div className="flex items-center justify-between py-1 border-t border-red-200">
-                            <span className="text-sm text-red-700 font-medium">PE SL:</span>
-                            <span className="font-mono text-sm font-semibold text-green-600">
-                              {formatNumber(strategyData.recommendation.sellStoploss)}
-                            </span>
+                            <div className="space-y-1 ml-4">
+                              {strategyData.recommendation.sellTargets.map((target: number, index: number) => (
+                                <div key={index} className="flex items-center justify-between py-1">
+                                  <span className="text-xs text-red-700">PE T{index + 1}:</span>
+                                  <span className="font-mono text-xs font-semibold text-red-800">
+                                    {formatNumber(target)}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="flex items-center justify-between py-1 border-t border-red-200">
+                                <span className="text-xs text-red-700 font-medium">PE SL:</span>
+                                <span className="font-mono text-xs font-semibold text-green-600">
+                                  {formatNumber(strategyData.recommendation.sellStoploss)}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
