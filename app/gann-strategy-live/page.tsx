@@ -261,6 +261,18 @@ export default function GannStrategyLivePage() {
           if (!isNaN(basePrice)) {
             const levelsData = calculateGannLevels(basePrice)
             parsedData.recommendation = levelsData.recommendation
+        // Normalize legacy payloads: if basePrice exists and either recommendation or the gannLevels shape is missing
+        if (parsedData.basePrice) {
+          const basePrice = parseFloat(parsedData.basePrice)
+          const needsMigration =
+            !parsedData.recommendation ||
+            !parsedData.gannLevels?.supports ||
+            !parsedData.gannLevels?.resistances
+
+          if (!isNaN(basePrice) && needsMigration) {
+            const levelsData = calculateGannLevels(basePrice)
+            parsedData.recommendation =
+              parsedData.recommendation ?? levelsData.recommendation
             parsedData.gannLevels = {
               supports: levelsData.supports,
               resistances: levelsData.resistances
@@ -268,6 +280,7 @@ export default function GannStrategyLivePage() {
             // Update localStorage with the fully migrated data
             localStorage.setItem('gannStrategyData', JSON.stringify(parsedData))
           }
+        }          }
         }
         setStrategyData(parsedData)
       } catch (err) {
@@ -446,150 +459,126 @@ export default function GannStrategyLivePage() {
     }
   ]
 
-  // Correct Option Trading Signals for Indian Traders
+  // Option Trading Signals based on Target Levels
   const getOptionSignal = () => {
-    if (!strategyData?.gannLevels || !strategyData?.currentNiftyPrice) return null
+    if (!strategyData?.recommendation || !strategyData?.currentNiftyPrice) return null
 
     const currentPrice = strategyData.currentNiftyPrice
-    const supports = strategyData.gannLevels.supports.map((s: any) => s.value).sort((a: number, b: number) => b - a)
-    const resistances = strategyData.gannLevels.resistances.map((r: any) => r.value).sort((a: number, b: number) => a - b)
+    const rec = strategyData.recommendation
 
-    // Get all 5 levels
-    const S1 = supports[0] // First support level
-    const S2 = supports[1] // Second support level
-    const S3 = supports[2] // Third support level
-    const S4 = supports[3] // Fourth support level
-    const S5 = supports[4] // Fifth support level
-    const R1 = resistances[0] // First resistance level
-    const R2 = resistances[1] // Second resistance level
-    const R3 = resistances[2] // Third resistance level
-    const R4 = resistances[3] // Fourth resistance level
-    const R5 = resistances[4] // Fifth resistance level
-
-    // PUT BUY: When price goes BELOW S1 (bearish trend)
-    if (currentPrice < S1) {
+    // CE BUY: When price is at or above the buyAbove level (bullish opportunity)
+    if (currentPrice >= rec.buyAbove) {
       // Determine current target based on which levels are hit
       let currentTarget, stopLoss, targetHit
 
-      if (currentPrice <= S5 && S5) {
-        // All targets hit, hold with S5 as stoploss
+      // Find the next target that hasn't been hit yet
+      const targets = rec.buyTargets
+      const hitTargets = targets.filter(target => currentPrice >= target)
+
+      if (hitTargets.length === targets.length) {
+        // All targets hit, hold with final target as stoploss
         currentTarget = 'All Targets Hit'
-        stopLoss = formatNumber(S5)
-        targetHit = 'S5 ✅'
-      } else if (currentPrice <= S4 && S4) {
-        // S4 hit, now targeting S5 with S4 as stoploss
-        currentTarget = S5 ? formatNumber(S5) : 'All Targets Hit'
-        stopLoss = formatNumber(S4)
-        targetHit = 'S4 ✅'
-      } else if (currentPrice <= S3 && S3) {
-        // S3 hit, now targeting S4 with S3 as stoploss
-        currentTarget = S4 ? formatNumber(S4) : formatNumber(S5 || S4 || S3)
-        stopLoss = formatNumber(S3)
-        targetHit = 'S3 ✅'
-      } else if (currentPrice <= S2 && S2) {
-        // S2 hit, now targeting S3 with S2 as stoploss
-        currentTarget = formatNumber(S3)
-        stopLoss = formatNumber(S2)
-        targetHit = 'S2 ✅'
+        stopLoss = formatNumber(targets[targets.length - 1])
+        targetHit = `T${targets.length} ✅`
+      } else if (hitTargets.length > 0) {
+        // Some targets hit, aim for next one
+        const nextTargetIndex = hitTargets.length
+        currentTarget = formatNumber(targets[nextTargetIndex])
+        stopLoss = formatNumber(targets[nextTargetIndex - 1])
+        targetHit = `T${nextTargetIndex} ✅`
       } else {
-        // Below S1, targeting S2 with S1 as stoploss
-        currentTarget = formatNumber(S2)
-        stopLoss = formatNumber(S1)
-        targetHit = 'Below S1'
+        // No targets hit yet, aim for first target
+        currentTarget = formatNumber(targets[0])
+        stopLoss = formatNumber(rec.buyStoploss)
+        targetHit = 'Entry Zone'
       }
 
       return {
-        signal: 'PUT BUY',
-        type: 'BEARISH',
-        perspective: 'PUT',
-        description: `NIFTY below S1 - PUT buying zone`,
-        entry: `Buy PUT below ${formatNumber(S1)}`,
-        currentTarget,
-        stopLoss,
-        targetHit,
-        targetsProgress: [
-          { level: 'S1', value: S1, status: currentPrice < S1 ? 'HIT' : 'ENTRY' },
-          { level: 'S2', value: S2, status: currentPrice <= S2 ? 'HIT' : 'TARGET' },
-          { level: 'S3', value: S3, status: currentPrice <= S3 ? 'HIT' : 'TARGET' },
-          { level: 'S4', value: S4, status: S4 && currentPrice <= S4 ? 'HIT' : 'TARGET' },
-          { level: 'S5', value: S5, status: S5 && currentPrice <= S5 ? 'HIT' : 'TARGET' }
-        ].filter(target => target.value) // Filter out undefined levels
-      }
-    }
-    // CALL BUY: When price goes ABOVE R1 (bullish trend)
-    else if (currentPrice > R1) {
-      // Determine current target based on which levels are hit
-      let currentTarget, stopLoss, targetHit
-
-      if (currentPrice >= R5 && R5) {
-        // All targets hit, hold with R5 as stoploss
-        currentTarget = 'All Targets Hit'
-        stopLoss = formatNumber(R5)
-        targetHit = 'R5 ✅'
-      } else if (currentPrice >= R4 && R4) {
-        // R4 hit, now targeting R5 with R4 as stoploss
-        currentTarget = R5 ? formatNumber(R5) : 'All Targets Hit'
-        stopLoss = formatNumber(R4)
-        targetHit = 'R4 ✅'
-      } else if (currentPrice >= R3 && R3) {
-        // R3 hit, now targeting R4 with R3 as stoploss
-        currentTarget = R4 ? formatNumber(R4) : formatNumber(R5 || R4 || R3)
-        stopLoss = formatNumber(R3)
-        targetHit = 'R3 ✅'
-      } else if (currentPrice >= R2 && R2) {
-        // R2 hit, now targeting R3 with R2 as stoploss
-        currentTarget = formatNumber(R3)
-        stopLoss = formatNumber(R2)
-        targetHit = 'R2 ✅'
-      } else {
-        // Above R1, targeting R2 with R1 as stoploss
-        currentTarget = formatNumber(R2)
-        stopLoss = formatNumber(R1)
-        targetHit = 'Above R1'
-      }
-
-      return {
-        signal: 'CALL BUY',
+        signal: 'CE BUY',
         type: 'BULLISH',
         perspective: 'CALL',
-        description: `NIFTY above R1 - CALL buying zone`,
-        entry: `Buy CALL above ${formatNumber(R1)}`,
+        description: `NIFTY at/above ${formatNumber(rec.buyAbove)} - CE buying zone`,
+        entry: `Buy CE at/above ${formatNumber(rec.buyAbove)}`,
         currentTarget,
         stopLoss,
         targetHit,
-        targetsProgress: [
-          { level: 'R1', value: R1, status: currentPrice > R1 ? 'HIT' : 'ENTRY' },
-          { level: 'R2', value: R2, status: currentPrice >= R2 ? 'HIT' : 'TARGET' },
-          { level: 'R3', value: R3, status: currentPrice >= R3 ? 'HIT' : 'TARGET' },
-          { level: 'R4', value: R4, status: R4 && currentPrice >= R4 ? 'HIT' : 'TARGET' },
-          { level: 'R5', value: R5, status: R5 && currentPrice >= R5 ? 'HIT' : 'TARGET' }
-        ].filter(target => target.value) // Filter out undefined levels
+        targetsProgress: targets.map((target, index) => ({
+          level: `T${index + 1}`,
+          value: target,
+          status: currentPrice >= target ? 'HIT' :
+                  index === 0 && currentPrice >= rec.buyAbove ? 'TARGET' :
+                  index === 0 ? 'ENTRY' : 'TARGET'
+        }))
+      }
+    }
+    // PE BUY: When price is at or below the sellBelow level (bearish opportunity)
+    else if (currentPrice <= rec.sellBelow) {
+      // Determine current target based on which levels are hit
+      let currentTarget, stopLoss, targetHit
+
+      // Find the next target that hasn't been hit yet
+      const targets = rec.sellTargets
+      const hitTargets = targets.filter(target => currentPrice <= target)
+
+      if (hitTargets.length === targets.length) {
+        // All targets hit, hold with final target as stoploss
+        currentTarget = 'All Targets Hit'
+        stopLoss = formatNumber(targets[targets.length - 1])
+        targetHit = `T${targets.length} ✅`
+      } else if (hitTargets.length > 0) {
+        // Some targets hit, aim for next one
+        const nextTargetIndex = hitTargets.length
+        currentTarget = formatNumber(targets[nextTargetIndex])
+        stopLoss = formatNumber(targets[nextTargetIndex - 1])
+        targetHit = `T${nextTargetIndex} ✅`
+      } else {
+        // No targets hit yet, aim for first target
+        currentTarget = formatNumber(targets[0])
+        stopLoss = formatNumber(rec.sellStoploss)
+        targetHit = 'Entry Zone'
+      }
+
+      return {
+        signal: 'PE BUY',
+        type: 'BEARISH',
+        perspective: 'PUT',
+        description: `NIFTY at/below ${formatNumber(rec.sellBelow)} - PE buying zone`,
+        entry: `Buy PE at/below ${formatNumber(rec.sellBelow)}`,
+        currentTarget,
+        stopLoss,
+        targetHit,
+        targetsProgress: targets.map((target, index) => ({
+          level: `T${index + 1}`,
+          value: target,
+          status: currentPrice <= target ? 'HIT' :
+                  index === 0 && currentPrice <= rec.sellBelow ? 'TARGET' :
+                  index === 0 ? 'ENTRY' : 'TARGET'
+        }))
       }
     }
 
-    // Price between S1 and R1 - Wait for breakout
+    // Price between entry levels - Wait for breakout
     return {
       signal: 'WAIT',
       type: 'SIDEWAYS',
       perspective: 'NEUTRAL',
-      description: `NIFTY between S1 (${formatNumber(S1)}) and R1 (${formatNumber(R1)})`,
-      entry: 'Wait for breakout above R1 (CALL) or breakdown below S1 (PUT)',
+      description: `NIFTY between ${formatNumber(rec.sellBelow)} (PE) and ${formatNumber(rec.buyAbove)} (CE)`,
+      entry: 'Wait for breakout above CE entry or breakdown below PE entry',
       currentTarget: 'N/A',
       stopLoss: 'N/A',
       targetHit: 'Waiting',
       targetsProgress: [
-        { level: 'S1', value: S1, status: 'SUPPORT' },
-        { level: 'R1', value: R1, status: 'RESISTANCE' }
+        { level: 'PE Entry', value: rec.sellBelow, status: 'ENTRY' },
+        { level: 'CE Entry', value: rec.buyAbove, status: 'ENTRY' }
       ]
     }
   }
 
   const getTargetLevels = () => {
-    if (!strategyData?.gannLevels || !strategyData?.currentNiftyPrice) return []
+    if (!strategyData?.recommendation || !strategyData?.currentNiftyPrice) return []
 
     const currentPrice = strategyData.currentNiftyPrice
-    const supports = strategyData.gannLevels.supports.map((s: any) => s.value).sort((a: number, b: number) => b - a)
-    const resistances = strategyData.gannLevels.resistances.map((r: any) => r.value).sort((a: number, b: number) => a - b)
+    const rec = strategyData.recommendation
 
     const signal = getOptionSignal()
     const targets: Array<{
@@ -601,59 +590,55 @@ export default function GannStrategyLivePage() {
       role: string
     }> = []
 
-    // Show levels based on current perspective
+    // Show target levels based on current perspective
     if (signal?.perspective === 'PUT') {
-      // In PUT perspective, show support levels as targets
-      supports.forEach((support: number, index: number) => {
+      // In PE perspective, show PE buy targets
+      rec.sellTargets.forEach((target: number, index: number) => {
         targets.push({
           type: 'PUT_TARGET',
-          level: support,
-          levelName: `S${index + 1}`,
-          distance: currentPrice < support ? ((support - currentPrice) / currentPrice * 100).toFixed(1) : '0.0',
-          status: currentPrice <= support ? 'HIT' : 'TARGET',
+          level: target,
+          levelName: `PE T${index + 1}`,
+          distance: currentPrice > target ? ((currentPrice - target) / currentPrice * 100).toFixed(1) : '0.0',
+          status: currentPrice <= target ? 'HIT' : 'TARGET',
           role: index === 0 ? 'ENTRY' : index === 1 ? 'TARGET1' : index === 2 ? 'TARGET2' :
                 index === 3 ? 'TARGET3' : index === 4 ? 'TARGET4' : 'FAR_TARGET'
         })
       })
     } else if (signal?.perspective === 'CALL') {
-      // In CALL perspective, show resistance levels as targets
-      resistances.forEach((resistance: number, index: number) => {
+      // In CE perspective, show CE buy targets
+      rec.buyTargets.forEach((target: number, index: number) => {
         targets.push({
           type: 'CALL_TARGET',
-          level: resistance,
-          levelName: `R${index + 1}`,
-          distance: currentPrice < resistance ? ((resistance - currentPrice) / currentPrice * 100).toFixed(1) : '0.0',
-          status: currentPrice >= resistance ? 'HIT' : currentPrice < resistance ? 'TARGET' : 'CURRENT',
+          level: target,
+          levelName: `CE T${index + 1}`,
+          distance: currentPrice < target ? ((target - currentPrice) / currentPrice * 100).toFixed(1) : '0.0',
+          status: currentPrice >= target ? 'HIT' : 'TARGET',
           role: index === 0 ? 'ENTRY' : index === 1 ? 'TARGET1' : index === 2 ? 'TARGET2' :
                 index === 3 ? 'TARGET3' : index === 4 ? 'TARGET4' : 'FAR_TARGET'
         })
       })
     } else {
-      // Neutral perspective - show both
-      supports.forEach((support: number, index: number) => {
-        targets.push({
-          type: 'PUT_TARGET',
-          level: support,
-          levelName: `S${index + 1}`,
-          distance: currentPrice > support ? ((currentPrice - support) / currentPrice * 100).toFixed(1) : '0.0',
-          status: currentPrice >= support ? 'HIT' : 'SUPPORT',
-          role: 'SUPPORT'
-        })
+      // Neutral perspective - show both entry levels
+      targets.push({
+        type: 'PUT_TARGET',
+        level: rec.sellBelow,
+        levelName: 'PE Entry',
+        distance: currentPrice > rec.sellBelow ? ((currentPrice - rec.sellBelow) / currentPrice * 100).toFixed(1) : '0.0',
+        status: currentPrice <= rec.sellBelow ? 'ENTRY_ACTIVE' : 'ENTRY',
+        role: 'ENTRY'
       })
 
-      resistances.forEach((resistance: number, index: number) => {
-        targets.push({
-          type: 'CALL_TARGET',
-          level: resistance,
-          levelName: `R${index + 1}`,
-          distance: currentPrice < resistance ? ((resistance - currentPrice) / currentPrice * 100).toFixed(1) : '0.0',
-          status: currentPrice >= resistance ? 'HIT' : 'RESISTANCE',
-          role: 'RESISTANCE'
-        })
+      targets.push({
+        type: 'CALL_TARGET',
+        level: rec.buyAbove,
+        levelName: 'CE Entry',
+        distance: currentPrice < rec.buyAbove ? ((rec.buyAbove - currentPrice) / currentPrice * 100).toFixed(1) : '0.0',
+        status: currentPrice >= rec.buyAbove ? 'ENTRY_ACTIVE' : 'ENTRY',
+        role: 'ENTRY'
       })
     }
 
-    return targets.slice(0, 10) // Return all available levels (up to 5 support + 5 resistance)
+    return targets.slice(0, 10) // Return available target levels
   }
 
 
