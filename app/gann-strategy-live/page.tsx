@@ -358,7 +358,7 @@ export default function GannStrategyLivePage() {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [autoRefresh, fetchIntradayData, fetchOIData, isRefreshing, oiLoading])
+  }, [autoRefresh, fetchIntradayData, fetchOIData])
 
   // Initialize expiry options on component mount
   useEffect(() => {
