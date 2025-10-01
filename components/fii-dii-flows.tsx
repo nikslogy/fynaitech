@@ -27,17 +27,37 @@ export default function FIIDIIFlows({ refreshKey }: { refreshKey?: number } = {}
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState('daily')
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  })
+  const [selectedMonth, setSelectedMonth] = useState('')
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
   useEffect(() => {
-    loadData()
-  }, [selectedPeriod, selectedMonth, refreshKey])
+    if (availableMonths.length === 0) {
+      loadAvailableMonths()
+    } else if (selectedMonth) {
+      loadData()
+    }
+  }, [selectedPeriod, selectedMonth, refreshKey, availableMonths])
+
+  const loadAvailableMonths = async () => {
+    try {
+      const { months } = await fetchFIIDIIDatesData()
+      setAvailableMonths(months)
+      // Set default to the most recent month with data
+      if (months.length > 0 && !selectedMonth) {
+        setSelectedMonth(months[0])
+      }
+    } catch (err) {
+      console.error('Failed to load available months:', err)
+      // Fallback to current month if API fails
+      const now = new Date()
+      setSelectedMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+    }
+  }
 
   const loadData = async () => {
+    if (!selectedMonth) return
+
     setLoading(true)
     setError(null)
 
@@ -215,10 +235,9 @@ export default function FIIDIIFlows({ refreshKey }: { refreshKey?: number } = {}
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Array.from({ length: 12 }, (_, i) => {
-                  const date = new Date()
-                  date.setMonth(date.getMonth() - i)
-                  const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+                {availableMonths.map((yearMonth) => {
+                  const [year, month] = yearMonth.split('-')
+                  const date = new Date(parseInt(year), parseInt(month) - 1, 1)
                   const label = date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
                   return (
                     <SelectItem key={yearMonth} value={yearMonth}>
