@@ -73,54 +73,42 @@ export default function GannStrategyLivePage() {
   const [defaultEndStrike, setDefaultEndStrike] = useState('25600') // Default end strike
   const [selectedExpiry, setSelectedExpiry] = useState('') // Selected expiry for chart
   const [expiryOptions, setExpiryOptions] = useState<any[]>([]) // Available expiry options
+  const [customExpiryDate, setCustomExpiryDate] = useState('') // Custom expiry date input
+  const [isCustomExpiry, setIsCustomExpiry] = useState(false) // Whether using custom expiry date
   const [trendingData, setTrendingData] = useState<TrendingOIData[]>([])
   const [oiLoading, setOiLoading] = useState(false)
 
 
-  // Generate weekly expiry dates starting from next valid expiry (Tuesday)
+  // Generate NIFTY expiry dates based on the correct expiry schedule
   const generateWeeklyExpiryDates = (): any[] => {
-    const expiryDates = []
+    // Correct NIFTY expiry dates provided by user
+    const expiryDateStrings = [
+      '2025-10-20', // 20 Oct
+      '2025-10-28', // 28 Oct
+      '2025-11-04', // 4 Nov
+      '2025-11-11', // 11 Nov
+      '2025-11-18', // 18 Nov
+      '2025-11-25', // 25 Nov
+      '2025-12-30', // 30 Dec
+      '2026-03-31'  // 31 March 2026
+    ]
+
     const today = new Date()
     today.setHours(0, 0, 0, 0) // Reset time to start of day
 
-    // Find the next Tuesday (NIFTY expiry day)
-    const currentDay = today.getDay() // 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
-    let daysUntilNextTuesday = 2 - currentDay // Tuesday is day 2
+    const expiryDates = []
 
-    if (daysUntilNextTuesday < 0) {
-      // If today is Wednesday, Thursday, Friday, Saturday, Sunday, Monday, get next Tuesday
-      daysUntilNextTuesday += 7
-    } else     if (daysUntilNextTuesday === 0) {
-      // If today is Tuesday, keep it visible until tomorrow (Wednesday)
-      const tomorrow = new Date(today)
-      tomorrow.setDate(today.getDate() + 1)
-      const isTomorrowWednesday = tomorrow.getDay() === 3 // Wednesday is 3
+    // Convert date strings to Date objects and filter for future dates
+    for (const dateStr of expiryDateStrings) {
+      const expiryDate = new Date(dateStr + 'T00:00:00')
 
-      if (!isTomorrowWednesday) {
-        // If tomorrow is not Wednesday, it means today is not Tuesday, so use next Tuesday
-        daysUntilNextTuesday += 7
-      }
-      // If tomorrow is Wednesday, keep today's Tuesday expiry visible
-    }
-
-    // Start from the next Tuesday
-    const startDate = new Date(today)
-    startDate.setDate(today.getDate() + daysUntilNextTuesday)
-
-    // Generate next 8 weekly expiry dates (every 7 days from the next Tuesday)
-    for (let i = 0; i < 8; i++) {
-      const expiryDate = new Date(startDate)
-      expiryDate.setDate(startDate.getDate() + (i * 7))
-
-      // Only include future dates (should always be true with new logic)
+      // Only include future dates or today's date
       if (expiryDate >= today) {
-        // Use local date to avoid timezone issues
         const year = expiryDate.getFullYear()
         const month = String(expiryDate.getMonth() + 1).padStart(2, '0')
         const day = String(expiryDate.getDate()).padStart(2, '0')
-        const dateStr = `${year}-${month}-${day}`
-        const monthShort = dateStr.slice(5, 7)
-        const dayShort = dateStr.slice(8, 10)
+        const monthShort = month
+        const dayShort = day
 
         expiryDates.push({
           expiry: dateStr + 'T00:00:00',
@@ -130,29 +118,23 @@ export default function GannStrategyLivePage() {
       }
     }
 
-    // Fallback: If no dates generated, create some default future dates
+    // If no future dates, add a fallback option
     if (expiryDates.length === 0) {
       const fallbackDate = new Date(today)
       fallbackDate.setDate(today.getDate() + 7) // Next week
 
-      for (let i = 0; i < 4; i++) {
-        const expiryDate = new Date(fallbackDate)
-        expiryDate.setDate(fallbackDate.getDate() + (i * 7))
+      const year = fallbackDate.getFullYear()
+      const month = String(fallbackDate.getMonth() + 1).padStart(2, '0')
+      const day = String(fallbackDate.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
+      const monthShort = month
+      const dayShort = day
 
-        // Use local date to avoid timezone issues
-        const year = expiryDate.getFullYear()
-        const month = String(expiryDate.getMonth() + 1).padStart(2, '0')
-        const day = String(expiryDate.getDate()).padStart(2, '0')
-        const dateStr = `${year}-${month}-${day}`
-        const monthShort = dateStr.slice(5, 7)
-        const dayShort = dateStr.slice(8, 10)
-
-        expiryDates.push({
-          expiry: dateStr + 'T00:00:00',
-          trading_symbol: `NIFTY${monthShort}${dayShort}FUT`,
-          expiry_date: dateStr
-        })
-      }
+      expiryDates.push({
+        expiry: dateStr + 'T00:00:00',
+        trading_symbol: `NIFTY${monthShort}${dayShort}FUT`,
+        expiry_date: dateStr
+      })
     }
 
     return expiryDates
@@ -203,6 +185,29 @@ export default function GannStrategyLivePage() {
     return strikes.join(',')
   }
 
+  // Handle expiry selection change
+  const handleExpiryChange = (value: string) => {
+    if (value === 'custom') {
+      setIsCustomExpiry(true)
+      setSelectedExpiry('') // Clear selected expiry when switching to custom
+    } else {
+      setIsCustomExpiry(false)
+      setSelectedExpiry(value)
+      setCustomExpiryDate('') // Clear custom date when selecting predefined expiry
+    }
+  }
+
+  // Handle custom date input change
+  const handleCustomDateChange = (date: string) => {
+    setCustomExpiryDate(date)
+    if (date) {
+      // Set selected expiry to custom date when date is entered
+      setSelectedExpiry(date + 'T00:00:00')
+    } else {
+      setSelectedExpiry('')
+    }
+  }
+
   // Fetch OI Analytics data (only trending data now)
   const fetchOIData = useCallback(async () => {
     try {
@@ -211,11 +216,14 @@ export default function GannStrategyLivePage() {
       // Determine strike range for trending data (always use default range now)
       const strikeRange = generateDefaultStrikeRange(defaultStartStrike, defaultEndStrike)
 
+      // Use custom date if selected, otherwise use selectedExpiry
+      const expiryToUse = isCustomExpiry && customExpiryDate ? customExpiryDate + 'T00:00:00' : selectedExpiry
+
       // Fetch trending OI data for time-series
       const rawTrendingData = await fetchTrendingOIData(
         'nifty',
         strikeRange,
-        selectedExpiry,
+        expiryToUse,
         oiInterval,
         ''
       )
@@ -229,7 +237,7 @@ export default function GannStrategyLivePage() {
     } finally {
       setOiLoading(false)
     }
-  }, [oiInterval, defaultStartStrike, defaultEndStrike, selectedExpiry])
+  }, [oiInterval, defaultStartStrike, defaultEndStrike, selectedExpiry, isCustomExpiry, customExpiryDate])
 
   const handleManualRefresh = useCallback(async () => {
     if (isRefreshing || oiLoading) return // Prevent multiple simultaneous refreshes
@@ -363,7 +371,13 @@ export default function GannStrategyLivePage() {
   // Initialize expiry options on component mount
   useEffect(() => {
     const expiryData = generateWeeklyExpiryDates()
-    setExpiryOptions(expiryData)
+    // Add custom date option
+    const customOption = {
+      expiry: 'custom',
+      trading_symbol: 'CUSTOM_DATE',
+      expiry_date: 'custom'
+    }
+    setExpiryOptions([...expiryData, customOption])
     if (expiryData.length > 0 && !selectedExpiry) {
       setSelectedExpiry(expiryData[0].expiry)
     }
@@ -847,14 +861,14 @@ export default function GannStrategyLivePage() {
                       {/* Expiry Date Selector */}
                       <div className="mb-3">
                         <Label className="text-xs font-medium mb-2 block">Expiry Date:</Label>
-                        <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                        <Select value={isCustomExpiry ? 'custom' : selectedExpiry} onValueChange={handleExpiryChange}>
                           <SelectTrigger className="w-full h-8">
                             <SelectValue placeholder="Select expiry date" />
                           </SelectTrigger>
                           <SelectContent>
                             {expiryOptions.map((expiry) => (
                               <SelectItem key={expiry.expiry} value={expiry.expiry}>
-                                {new Date(expiry.expiry).toLocaleDateString('en-IN', {
+                                {expiry.expiry === 'custom' ? 'Custom Date' : new Date(expiry.expiry).toLocaleDateString('en-IN', {
                                   day: '2-digit',
                                   month: 'short',
                                   year: 'numeric'
@@ -863,6 +877,18 @@ export default function GannStrategyLivePage() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {isCustomExpiry && (
+                          <div className="mt-2">
+                            <Input
+                              type="date"
+                              value={customExpiryDate}
+                              onChange={(e) => handleCustomDateChange(e.target.value)}
+                              placeholder="Select custom date"
+                              className="w-full h-8 text-xs"
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Strike Range Controls */}
@@ -1116,14 +1142,14 @@ export default function GannStrategyLivePage() {
                     {/* Expiry Date Selector */}
                     <div className="p-2 space-y-2">
                       <Label className="text-xs font-medium">Expiry Date:</Label>
-                      <Select value={selectedExpiry} onValueChange={setSelectedExpiry}>
+                      <Select value={isCustomExpiry ? 'custom' : selectedExpiry} onValueChange={handleExpiryChange}>
                         <SelectTrigger className="w-full h-8">
                           <SelectValue placeholder="Select expiry date" />
                         </SelectTrigger>
                         <SelectContent>
                           {expiryOptions.map((expiry) => (
                             <SelectItem key={expiry.expiry} value={expiry.expiry}>
-                              {new Date(expiry.expiry).toLocaleDateString('en-IN', {
+                              {expiry.expiry === 'custom' ? 'Custom Date' : new Date(expiry.expiry).toLocaleDateString('en-IN', {
                                 day: '2-digit',
                                 month: 'short',
                                 year: 'numeric'
@@ -1132,6 +1158,18 @@ export default function GannStrategyLivePage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {isCustomExpiry && (
+                        <div className="mt-2">
+                          <Input
+                            type="date"
+                            value={customExpiryDate}
+                            onChange={(e) => handleCustomDateChange(e.target.value)}
+                            placeholder="Select custom date"
+                            className="w-full h-8 text-xs"
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Strike Range Controls */}
